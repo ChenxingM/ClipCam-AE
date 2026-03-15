@@ -122,9 +122,11 @@ class CurveCanvas {
 
   _resize() {
     var dpr=window.devicePixelRatio||1;
-    var r=this.canvas.parentElement.getBoundingClientRect();
-    this._w=r.width; this._h=r.height;
+    var par=this.canvas.parentElement;
+    // Use clientWidth/Height to exclude border
+    this._w=par.clientWidth; this._h=par.clientHeight;
     this.canvas.width=this._w*dpr; this.canvas.height=this._h*dpr;
+    this.canvas.style.width=this._w+"px"; this.canvas.style.height=this._h+"px";
     this.ctx.setTransform(dpr,0,0,dpr,0,0);
   }
 
