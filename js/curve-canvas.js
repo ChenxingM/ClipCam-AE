@@ -1,33 +1,34 @@
 /**
- * Interactive FCurve canvas renderer — port from CamViewer/curve_view.py
+ * Interactive FCurve canvas — view + edit keyframes & bezier handles
  */
 
-// Per-property colors: each property has a unique color
+// Per-property colors
 var PROP_COLORS = {
-  "ImageCenter.X":  "#5082e6",  // blue (anchor X)
-  "ImageCenter.Y":  "#e6b432",  // yellow (anchor Y)
-  "ImagePosition.X":"#e65050",  // red (position X)
-  "ImagePosition.Y":"#50c850",  // green (position Y)
-  "ImageRotation":  "#50c8c8",  // cyan
-  "ImageScale":     "#e080b0",  // pink
-  "Opacity":        "#b450e6",  // purple
+  "ImageCenter.X":  "#5082e6",
+  "ImageCenter.Y":  "#e6b432",
+  "ImagePosition.X":"#E65050",
+  "ImagePosition.Y":"#5EDD9E",
+  "ImageRotation":  "#4CC9F0",
+  "ImageScale":     "#F76B8A",
+  "Opacity":        "#B450E6",
 };
-// Fallback cycle
-var CURVE_COLORS = [
-  "#e65050", "#50c850", "#5082e6", "#e6b432", "#b450e6", "#50c8c8", "#e080b0",
-];
-const COLOR_BG = "#1e1e1e";
-const COLOR_GRID = "#2e2e2e";
-const COLOR_GRID_MAJOR = "#3c3c3c";
-const COLOR_AXIS = "#505050";
-const COLOR_TEXT = "#888";
-const COLOR_KF = "#ffc83c";
-const COLOR_KF_HOVER = "#ffff82";
-const COLOR_HANDLE = "rgba(180,180,180,0.6)";
+var CURVE_COLORS = ["#E65050","#5EDD9E","#5082e6","#e6b432","#B450E6","#4CC9F0","#F76B8A"];
 
-const KF_RADIUS = 4;
-const HANDLE_RADIUS = 3;
-const HANDLE_LEN = 18;
+var COLOR_BG = "#1E1E1E";
+var COLOR_GRID = "#272727";
+var COLOR_GRID_MAJOR = "#333";
+var COLOR_AXIS = "#444";
+var COLOR_TEXT = "#666";
+var COLOR_KF = "#E6E6E6";
+var COLOR_KF_HOVER = "#fff";
+var COLOR_KF_DRAG = "#2D8CEB";
+var COLOR_HANDLE = "rgba(180,180,180,0.5)";
+var COLOR_HANDLE_DRAG = "rgba(45,140,235,0.9)";
+
+var KF_RADIUS = 4;
+var HANDLE_RADIUS = 3;
+var HANDLE_LEN = 20;
+var HIT_THRESH = 8;
 
 class CurveCanvas {
   constructor(canvas) {
@@ -37,14 +38,19 @@ class CurveCanvas {
     this.visibleSet = new Set();
     this.startFrame = 1;
     this.endFrame = 100;
-    this.viewX = 0;
-    this.viewY = 0;
-    this.scaleX = 5;
-    this.scaleY = 1;
-    this._dragging = false;
-    this._dragStart = null;
-    this._dragView = null;
-    this._hoverKf = null;
+    this.viewX = 0; this.viewY = 0;
+    this.scaleX = 5; this.scaleY = 1;
+
+    // Interaction state
+    this._panning = false;
+    this._panStart = null;
+    this._panView = null;
+    this._hoverKf = null;     // [ci, ki]
+    this._hoverHandle = null; // [ci, ki, dir] dir=-1 left, 1 right
+    this._dragKf = null;      // [ci, ki]
+    this._dragHandle = null;  // [ci, ki, dir]
+    this._dragStartMouse = null;
+    this._dragStartVal = null;
 
     this._bindEvents();
     this._resize();
@@ -55,295 +61,341 @@ class CurveCanvas {
     this.curves = curves;
     this.startFrame = startFrame;
     this.endFrame = endFrame;
-    this.visibleSet = new Set(); // populated by buildPropList via setVisible()
+    this.visibleSet = new Set();
     this._fitView();
     this.render();
   }
 
-  setVisible(index, visible) {
-    if (visible) this.visibleSet.add(index);
-    else this.visibleSet.delete(index);
+  setVisible(idx, vis) {
+    if (vis) this.visibleSet.add(idx); else this.visibleSet.delete(idx);
     this.render();
   }
 
-  clear() {
-    this.curves = [];
-    this.visibleSet.clear();
-    this.render();
-  }
+  clear() { this.curves = []; this.visibleSet.clear(); this.render(); }
 
-  // ── Coordinate transforms ──
-
-  _frameToX(f) { return (f - this.viewX) * this.scaleX; }
-  _valueToY(v) { return (this.viewY - v) * this.scaleY; }
-  _xToFrame(x) { return x / this.scaleX + this.viewX; }
-  _yToValue(y) { return this.viewY - y / this.scaleY; }
+  // ── Transforms ──
+  _f2x(f) { return (f - this.viewX) * this.scaleX; }
+  _v2y(v) { return (this.viewY - v) * this.scaleY; }
+  _x2f(x) { return x / this.scaleX + this.viewX; }
+  _y2v(y) { return this.viewY - y / this.scaleY; }
 
   _fitView() {
-    const allKf = [];
-    for (const fc of this.curves) for (const kf of fc.keyframes) allKf.push(kf);
-    if (!allKf.length) {
-      this.viewX = this.startFrame;
-      this.viewY = 0;
-      this.scaleX = (this._w - 80) / Math.max(1, this.endFrame - this.startFrame);
-      this.scaleY = 1;
-      return;
+    var kfs = [];
+    for (var c of this.curves) for (var k of c.keyframes) kfs.push(k);
+    if (!kfs.length) {
+      this.viewX = this.startFrame; this.viewY = 0;
+      this.scaleX = Math.max(1, (this._w - 80) / Math.max(1, this.endFrame - this.startFrame));
+      this.scaleY = 1; return;
     }
-    let minF = Math.min(this.startFrame, ...allKf.map(k => k.frame));
-    let maxF = Math.max(this.endFrame, ...allKf.map(k => k.frame));
-    let minV = Math.min(...allKf.map(k => k.value));
-    let maxV = Math.max(...allKf.map(k => k.value));
-    const fSpan = Math.max(1, maxF - minF);
-    let vSpan = maxV - minV;
-    if (vSpan < 1e-6) { vSpan = 10; minV -= 5; }
-    const m = 50;
-    this.scaleX = (this._w - m * 2) / fSpan;
-    this.scaleY = (this._h - m * 2) / vSpan;
+    var minF = Math.min(this.startFrame, ...kfs.map(k=>k.frame));
+    var maxF = Math.max(this.endFrame, ...kfs.map(k=>k.frame));
+    var minV = Math.min(...kfs.map(k=>k.value));
+    var maxV = Math.max(...kfs.map(k=>k.value));
+    var fs = Math.max(1, maxF-minF), vs = maxV-minV;
+    if (vs < 1e-6) { vs = 10; minV -= 5; }
+    var m = 44;
+    this.scaleX = (this._w - m*2) / fs;
+    this.scaleY = (this._h - m*2) / vs;
     this.viewX = minF - m / this.scaleX;
     this.viewY = maxV + m / this.scaleY;
   }
 
   _resize() {
-    const dpr = window.devicePixelRatio || 1;
-    const rect = this.canvas.parentElement.getBoundingClientRect();
-    this._w = rect.width;
-    this._h = rect.height;
+    var dpr = window.devicePixelRatio || 1;
+    var r = this.canvas.parentElement.getBoundingClientRect();
+    this._w = r.width; this._h = r.height;
     this.canvas.width = this._w * dpr;
     this.canvas.height = this._h * dpr;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  // ── Rendering ──
+  _color(ci) {
+    return PROP_COLORS[this.curves[ci].label] || CURVE_COLORS[ci % CURVE_COLORS.length];
+  }
 
+  // ── Render ──
   render() {
-    const ctx = this.ctx;
-    const w = this._w, h = this._h;
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = COLOR_BG;
-    ctx.fillRect(0, 0, w, h);
-
+    var ctx = this.ctx, w = this._w, h = this._h;
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = COLOR_BG; ctx.fillRect(0,0,w,h);
     if (!this.curves.length) return;
-
-    this._drawGrid(w, h);
+    this._drawGrid(w,h);
     this._drawCurves();
   }
 
   _drawGrid(w, h) {
-    const ctx = this.ctx;
-    ctx.font = "9px 'Consolas','monospace'";
+    var ctx = this.ctx;
+    ctx.font = "9px Consolas, monospace";
+    var fpx = 1/this.scaleX, vpx = 1/this.scaleY;
+    var fS = _niceStep(fpx*70), vS = _niceStep(vpx*50);
 
-    const fpx = 1 / this.scaleX;
-    const vpx = 1 / this.scaleY;
-    const fStep = _niceStep(fpx * 70);
-    const vStep = _niceStep(vpx * 50);
-
-    // Frame grid
-    let f = Math.floor(this._xToFrame(0) / fStep) * fStep;
-    const fEnd = this._xToFrame(w);
-    while (f <= fEnd) {
-      const x = this._frameToX(f);
-      const major = fStep >= 1 && Math.round(f) % Math.max(1, Math.round(fStep * 5)) === 0;
-      ctx.strokeStyle = Math.abs(f) < 0.01 ? COLOR_AXIS : (major ? COLOR_GRID_MAJOR : COLOR_GRID);
+    var f = Math.floor(this._x2f(0)/fS)*fS, fE = this._x2f(w);
+    while (f <= fE) {
+      var x = this._f2x(f);
+      var maj = fS >= 1 && Math.round(f)%Math.max(1,Math.round(fS*5))===0;
+      ctx.strokeStyle = Math.abs(f)<0.01 ? COLOR_AXIS : (maj ? COLOR_GRID_MAJOR : COLOR_GRID);
       ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
       ctx.fillStyle = COLOR_TEXT;
-      ctx.fillText(fStep >= 1 ? Math.round(f).toString() : f.toFixed(1), x + 2, h - 4);
-      f += fStep;
+      ctx.fillText(fS>=1 ? Math.round(f)+"" : f.toFixed(1), x+3, h-5);
+      f += fS;
     }
-
-    // Value grid
-    let v = Math.floor(this._yToValue(h) / vStep) * vStep;
-    const vEnd = this._yToValue(0);
-    while (v <= vEnd) {
-      const y = this._valueToY(v);
-      ctx.strokeStyle = Math.abs(v) < vStep * 0.01 ? COLOR_AXIS : COLOR_GRID;
+    var v = Math.floor(this._y2v(h)/vS)*vS, vE = this._y2v(0);
+    while (v <= vE) {
+      var y = this._v2y(v);
+      ctx.strokeStyle = Math.abs(v)<vS*0.01 ? COLOR_AXIS : COLOR_GRID;
       ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
       ctx.fillStyle = COLOR_TEXT;
-      ctx.fillText(Math.abs(vStep) < 1 ? v.toFixed(1) : Math.round(v).toString(), 4, y - 3);
-      v += vStep;
+      ctx.fillText(Math.abs(vS)<1 ? v.toFixed(1) : Math.round(v)+"", 4, y-4);
+      v += vS;
     }
-  }
-
-  _getCurveColor(ci) {
-    var fc = this.curves[ci];
-    return PROP_COLORS[fc.label] || CURVE_COLORS[ci % CURVE_COLORS.length];
   }
 
   _drawCurves() {
-    const ctx = this.ctx;
-
-    // Draw dimmed curves first (unchecked but have kf), then active on top
-    var order = [];
-    for (let ci = 0; ci < this.curves.length; ci++) {
-      var fc = this.curves[ci];
-      if (!fc.keyframes || !fc.keyframes.length) continue;
-      if (this.visibleSet.has(ci)) {
-        order.push({ ci: ci, dimmed: false });
-      } else {
-        order.push({ ci: ci, dimmed: true });
-      }
+    var ctx = this.ctx;
+    // Sort: dimmed first, active on top
+    var items = [];
+    for (var ci = 0; ci < this.curves.length; ci++) {
+      var kfs = this.curves[ci].keyframes;
+      if (!kfs || !kfs.length) continue;
+      items.push({ ci:ci, active: this.visibleSet.has(ci) });
     }
-    // Draw dimmed first, active on top
-    order.sort(function (a, b) { return (a.dimmed ? 0 : 1) - (b.dimmed ? 0 : 1); });
+    items.sort(function(a,b){ return (a.active?1:0)-(b.active?1:0); });
 
-    for (var oi = 0; oi < order.length; oi++) {
-      var ci = order[oi].ci;
-      var dimmed = order[oi].dimmed;
-      var fc = this.curves[ci];
-      var kfs = fc.keyframes;
-      var color = this._getCurveColor(ci);
-
-      ctx.globalAlpha = dimmed ? 0.3 : 1.0;
+    for (var ii = 0; ii < items.length; ii++) {
+      var ci = items[ii].ci, active = items[ii].active;
+      var fc = this.curves[ci], kfs = fc.keyframes, col = this._color(ci);
+      ctx.globalAlpha = active ? 1.0 : 0.25;
 
       // Segments
-      ctx.lineWidth = dimmed ? 1 : 2;
-      for (let i = 0; i < kfs.length - 1; i++) {
-        const k0 = kfs[i], k1 = kfs[i + 1];
-        const x0 = this._frameToX(k0.frame), y0 = this._valueToY(k0.value);
-        const x1 = this._frameToX(k1.frame), y1 = this._valueToY(k1.value);
-
-        ctx.strokeStyle = color;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = active ? 1.8 : 1;
+      for (var i = 0; i < kfs.length-1; i++) {
+        var k0 = kfs[i], k1 = kfs[i+1];
+        var x0=this._f2x(k0.frame), y0=this._v2y(k0.value);
+        var x1=this._f2x(k1.frame), y1=this._v2y(k1.value);
         ctx.beginPath();
-        if (k0.interpType === 2) { // hold
-          ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.lineTo(x1, y1);
-        } else if (k0.interpType === 1) { // linear
-          ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
-        } else { // smooth bezier
-          const dx = (x1 - x0) / 3;
-          const cp1x = x0 + dx;
-          const cp1y = y0 - k0.rightSlope * dx / this.scaleX * this.scaleY;
-          const cp2x = x1 - dx;
-          const cp2y = y1 + k1.leftSlope * dx / this.scaleX * this.scaleY;
-          ctx.moveTo(x0, y0);
-          ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x1, y1);
+        if (k0.interpType===2) { ctx.moveTo(x0,y0); ctx.lineTo(x1,y0); ctx.lineTo(x1,y1); }
+        else if (k0.interpType===1) { ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); }
+        else {
+          var dx=(x1-x0)/3;
+          ctx.moveTo(x0,y0);
+          ctx.bezierCurveTo(
+            x0+dx, y0-k0.rightSlope*dx/this.scaleX*this.scaleY,
+            x1-dx, y1+k1.leftSlope*dx/this.scaleX*this.scaleY,
+            x1, y1);
         }
         ctx.stroke();
       }
 
-      // Handles (only for active curves)
-      if (!dimmed) {
-        for (var ki2 = 0; ki2 < kfs.length; ki2++) {
-          var kf = kfs[ki2];
+      // Handles (active only)
+      if (active) {
+        for (var ki=0; ki<kfs.length; ki++) {
+          var kf = kfs[ki];
           if (kf.interpType !== 0) continue;
-          const cx = this._frameToX(kf.frame), cy = this._valueToY(kf.value);
-          for (const dir of [-1, 1]) {
-            const slope = dir === -1 ? kf.leftSlope : kf.rightSlope;
-            const hx = cx + HANDLE_LEN * dir;
-            const hy = cy - slope * HANDLE_LEN * dir / this.scaleX * this.scaleY;
-            ctx.strokeStyle = COLOR_HANDLE;
+          var cx=this._f2x(kf.frame), cy=this._v2y(kf.value);
+          for (var dir of [-1,1]) {
+            var sl = dir===-1 ? kf.leftSlope : kf.rightSlope;
+            var hx = cx+HANDLE_LEN*dir;
+            var hy = cy - sl*HANDLE_LEN*dir/this.scaleX*this.scaleY;
+            var isDrag = this._dragHandle && this._dragHandle[0]===ci && this._dragHandle[1]===ki && this._dragHandle[2]===dir;
+            var isHov = this._hoverHandle && this._hoverHandle[0]===ci && this._hoverHandle[1]===ki && this._hoverHandle[2]===dir;
+            ctx.strokeStyle = isDrag ? COLOR_HANDLE_DRAG : COLOR_HANDLE;
             ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(hx, hy); ctx.stroke();
-            ctx.fillStyle = COLOR_HANDLE;
-            ctx.beginPath(); ctx.arc(hx, hy, HANDLE_RADIUS, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(hx,hy); ctx.stroke();
+            ctx.fillStyle = isDrag||isHov ? COLOR_HANDLE_DRAG : COLOR_HANDLE;
+            ctx.beginPath(); ctx.arc(hx,hy, isDrag||isHov?4:HANDLE_RADIUS, 0, Math.PI*2); ctx.fill();
           }
         }
       }
 
       // Keyframe diamonds
-      for (let ki = 0; ki < kfs.length; ki++) {
-        const kf = kfs[ki];
-        const x = this._frameToX(kf.frame), y = this._valueToY(kf.value);
-        const hover = this._hoverKf && this._hoverKf[0] === ci && this._hoverKf[1] === ki;
-        const r = KF_RADIUS + (hover ? 1 : 0);
-        ctx.fillStyle = hover ? COLOR_KF_HOVER : COLOR_KF;
+      for (var ki=0; ki<kfs.length; ki++) {
+        var kf = kfs[ki];
+        var x=this._f2x(kf.frame), y=this._v2y(kf.value);
+        var isDrag = this._dragKf && this._dragKf[0]===ci && this._dragKf[1]===ki;
+        var isHov = this._hoverKf && this._hoverKf[0]===ci && this._hoverKf[1]===ki;
+        var r = KF_RADIUS + (isHov||isDrag ? 1.5 : 0);
+        ctx.fillStyle = isDrag ? COLOR_KF_DRAG : (isHov ? COLOR_KF_HOVER : col);
         ctx.beginPath();
-        ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y);
+        ctx.moveTo(x,y-r); ctx.lineTo(x+r,y); ctx.lineTo(x,y+r); ctx.lineTo(x-r,y);
         ctx.closePath(); ctx.fill();
+        // Outline for visibility
+        if (active) {
+          ctx.strokeStyle = "rgba(0,0,0,0.4)";
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
       }
 
-      // Label
-      ctx.fillStyle = color;
-      ctx.font = "10px 'Segoe UI',sans-serif";
-      var displayLabel = (typeof AE_NAMES !== "undefined" && AE_NAMES[fc.label]) || fc.label;
-      ctx.fillText(displayLabel, 8, 14 + ci * 14);
-
+      // Legend label
+      ctx.fillStyle = col;
+      ctx.font = "10px 'Segoe UI', sans-serif";
+      var lbl = (typeof AE_NAMES!=="undefined" && AE_NAMES[fc.label]) || fc.label;
+      ctx.fillText(lbl, 8, 14 + ci*14);
       ctx.globalAlpha = 1.0;
     }
   }
 
-  // ── Interaction ──
+  // ── Hit testing ──
+  _hitTest(mx, my) {
+    // Check handles first (higher priority), then keyframes
+    for (var ci=0; ci<this.curves.length; ci++) {
+      if (!this.visibleSet.has(ci)) continue;
+      var kfs = this.curves[ci].keyframes;
+      for (var ki=0; ki<kfs.length; ki++) {
+        var kf = kfs[ki];
+        if (kf.interpType !== 0) continue;
+        var cx=this._f2x(kf.frame), cy=this._v2y(kf.value);
+        for (var dir of [-1,1]) {
+          var sl = dir===-1 ? kf.leftSlope : kf.rightSlope;
+          var hx = cx+HANDLE_LEN*dir;
+          var hy = cy - sl*HANDLE_LEN*dir/this.scaleX*this.scaleY;
+          if (Math.hypot(mx-hx, my-hy) < HIT_THRESH) return { type:"handle", ci:ci, ki:ki, dir:dir };
+        }
+      }
+    }
+    for (var ci=0; ci<this.curves.length; ci++) {
+      if (!this.visibleSet.has(ci)) continue;
+      var kfs = this.curves[ci].keyframes;
+      for (var ki=0; ki<kfs.length; ki++) {
+        var x=this._f2x(kfs[ki].frame), y=this._v2y(kfs[ki].value);
+        if (Math.hypot(mx-x, my-y) < HIT_THRESH) return { type:"kf", ci:ci, ki:ki };
+      }
+    }
+    return null;
+  }
 
+  // ── Events ──
   _bindEvents() {
-    const c = this.canvas;
-    c.addEventListener("wheel", (e) => this._onWheel(e), { passive: false });
-    c.addEventListener("mousedown", (e) => this._onMouseDown(e));
-    c.addEventListener("mousemove", (e) => this._onMouseMove(e));
-    c.addEventListener("mouseup", () => this._onMouseUp());
+    var c = this.canvas;
+    c.addEventListener("wheel", (e) => this._onWheel(e), {passive:false});
+    c.addEventListener("mousedown", (e) => this._onDown(e));
+    c.addEventListener("mousemove", (e) => this._onMove(e));
+    c.addEventListener("mouseup", () => this._onUp());
+    c.addEventListener("mouseleave", () => this._onUp());
     c.addEventListener("dblclick", () => { this._fitView(); this.render(); });
   }
 
   _onWheel(e) {
     e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-    const rect = this.canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    const fAt = this._xToFrame(mx), vAt = this._yToValue(my);
-
-    if (e.shiftKey) this.scaleY *= factor;
-    else if (e.ctrlKey) this.scaleX *= factor;
-    else { this.scaleX *= factor; this.scaleY *= factor; }
-
-    this.viewX = fAt - mx / this.scaleX;
-    this.viewY = vAt + my / this.scaleY;
+    var f = e.deltaY<0 ? 1.12 : 1/1.12;
+    var r = this.canvas.getBoundingClientRect();
+    var mx=e.clientX-r.left, my=e.clientY-r.top;
+    var fa=this._x2f(mx), va=this._y2v(my);
+    if (e.shiftKey) this.scaleY*=f;
+    else if (e.ctrlKey) this.scaleX*=f;
+    else { this.scaleX*=f; this.scaleY*=f; }
+    this.viewX = fa - mx/this.scaleX;
+    this.viewY = va + my/this.scaleY;
     this.render();
   }
 
-  _onMouseDown(e) {
-    if (e.button === 1 || (e.button === 0 && e.altKey)) {
-      this._dragging = true;
-      this._dragStart = [e.clientX, e.clientY];
-      this._dragView = [this.viewX, this.viewY];
+  _onDown(e) {
+    var r = this.canvas.getBoundingClientRect();
+    var mx=e.clientX-r.left, my=e.clientY-r.top;
+
+    // Pan: middle click or alt+left
+    if (e.button===1 || (e.button===0 && e.altKey)) {
+      this._panning = true;
+      this._panStart = [e.clientX, e.clientY];
+      this._panView = [this.viewX, this.viewY];
       this.canvas.style.cursor = "grabbing";
+      return;
     }
-  }
 
-  _onMouseMove(e) {
-    if (this._dragging) {
-      const dx = e.clientX - this._dragStart[0];
-      const dy = e.clientY - this._dragStart[1];
-      this.viewX = this._dragView[0] - dx / this.scaleX;
-      this.viewY = this._dragView[1] + dy / this.scaleY;
+    if (e.button !== 0) return;
+
+    var hit = this._hitTest(mx, my);
+    if (hit && hit.type === "handle") {
+      this._dragHandle = [hit.ci, hit.ki, hit.dir];
+      this._dragStartMouse = [mx, my];
+      var kf = this.curves[hit.ci].keyframes[hit.ki];
+      this._dragStartVal = hit.dir===-1 ? kf.leftSlope : kf.rightSlope;
+      this.canvas.style.cursor = "crosshair";
       this.render();
-    } else {
-      this._updateHover(e);
+    } else if (hit && hit.type === "kf") {
+      this._dragKf = [hit.ci, hit.ki];
+      this._dragStartMouse = [mx, my];
+      var kf = this.curves[hit.ci].keyframes[hit.ki];
+      this._dragStartVal = { frame: kf.frame, value: kf.value };
+      this.canvas.style.cursor = "grab";
+      this.render();
     }
   }
 
-  _onMouseUp() {
-    if (this._dragging) {
-      this._dragging = false;
+  _onMove(e) {
+    var r = this.canvas.getBoundingClientRect();
+    var mx=e.clientX-r.left, my=e.clientY-r.top;
+
+    if (this._panning) {
+      this.viewX = this._panView[0] - (e.clientX-this._panStart[0])/this.scaleX;
+      this.viewY = this._panView[1] + (e.clientY-this._panStart[1])/this.scaleY;
+      this.render(); return;
+    }
+
+    if (this._dragKf) {
+      var ci=this._dragKf[0], ki=this._dragKf[1];
+      var kf = this.curves[ci].keyframes[ki];
+      var newFrame = Math.round(this._x2f(mx));
+      var newValue = this._y2v(my);
+      // Constrain frame between adjacent keyframes
+      var kfs = this.curves[ci].keyframes;
+      var minF = ki > 0 ? kfs[ki-1].frame + 1 : this.startFrame;
+      var maxF = ki < kfs.length-1 ? kfs[ki+1].frame - 1 : this.endFrame;
+      kf.frame = Math.max(minF, Math.min(maxF, newFrame));
+      kf.value = newValue;
+      this.render(); return;
+    }
+
+    if (this._dragHandle) {
+      var ci=this._dragHandle[0], ki=this._dragHandle[1], dir=this._dragHandle[2];
+      var kf = this.curves[ci].keyframes[ki];
+      var cx=this._f2x(kf.frame), cy=this._v2y(kf.value);
+      // Compute slope from mouse position relative to keyframe
+      var dx = (mx - cx) * dir;
+      if (Math.abs(dx) < 1) dx = 1;
+      var dy = -(my - cy);
+      var newSlope = (dy / dx) * (this.scaleX / this.scaleY);
+      if (dir === -1) kf.leftSlope = newSlope;
+      else kf.rightSlope = newSlope;
+      this.render(); return;
+    }
+
+    // Hover detection
+    var hit = this._hitTest(mx, my);
+    var newHoverKf = null, newHoverHandle = null;
+    if (hit && hit.type === "handle") {
+      newHoverHandle = [hit.ci, hit.ki, hit.dir];
+      this.canvas.style.cursor = "crosshair";
+    } else if (hit && hit.type === "kf") {
+      newHoverKf = [hit.ci, hit.ki];
+      this.canvas.style.cursor = "grab";
+    } else {
       this.canvas.style.cursor = "";
     }
+
+    if (JSON.stringify(newHoverKf)!==JSON.stringify(this._hoverKf) ||
+        JSON.stringify(newHoverHandle)!==JSON.stringify(this._hoverHandle)) {
+      this._hoverKf = newHoverKf;
+      this._hoverHandle = newHoverHandle;
+      this.render();
+    }
   }
 
-  _updateHover(e) {
-    const rect = this.canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    let best = null, bestDist = KF_RADIUS * 3;
-    for (let ci = 0; ci < this.curves.length; ci++) {
-      if (!this.visibleSet.has(ci)) continue;
-      for (let ki = 0; ki < this.curves[ci].keyframes.length; ki++) {
-        const kf = this.curves[ci].keyframes[ki];
-        const x = this._frameToX(kf.frame), y = this._valueToY(kf.value);
-        const d = Math.hypot(mx - x, my - y);
-        if (d < bestDist) { bestDist = d; best = [ci, ki]; }
-      }
-    }
-    if (JSON.stringify(best) !== JSON.stringify(this._hoverKf)) {
-      this._hoverKf = best;
+  _onUp() {
+    if (this._panning) { this._panning=false; this.canvas.style.cursor=""; }
+    if (this._dragKf || this._dragHandle) {
+      this._dragKf = null; this._dragHandle = null;
+      this.canvas.style.cursor = "";
       this.render();
     }
   }
 }
 
 function _niceStep(raw) {
-  if (raw <= 0) return 1;
-  const exp = Math.floor(Math.log10(raw));
-  const base = Math.pow(10, exp);
-  const norm = raw / base;
-  if (norm <= 1.5) return base;
-  if (norm <= 3.5) return 2 * base;
-  if (norm <= 7.5) return 5 * base;
-  return 10 * base;
+  if (raw<=0) return 1;
+  var exp=Math.floor(Math.log10(raw)), base=Math.pow(10,exp), n=raw/base;
+  return n<=1.5?base:n<=3.5?2*base:n<=7.5?5*base:10*base;
 }
