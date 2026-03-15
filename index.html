@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ClipCamAE</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="header">
+    <h1>ClipCamAE</h1>
+    <button class="btn" id="btn-open">Open .clipcam</button>
+    <input type="file" id="file-input" accept=".clipcam" style="display:none">
+  </div>
+
+  <div class="info-bar" id="info-bar">
+    Open a .clipcam file to preview camera data
+  </div>
+
+  <div class="curve-container" id="curve-container">
+    <canvas id="curve-canvas"></canvas>
+    <div class="curve-empty" id="curve-empty">No curves loaded</div>
+  </div>
+
+  <div class="prop-section" id="prop-section"></div>
+
+  <div class="import-section">
+    <div class="option-row">
+      <span>Mode:</span>
+      <select id="mode-select">
+        <option value="cam_frame">Cam Frame (in LO comp)</option>
+        <option value="lo_layer">LO Layer (in CAM comp)</option>
+      </select>
+    </div>
+    <div class="option-row">
+      <span>LO size:</span>
+      <input type="number" id="lo-width" class="size-input" value="1920" min="1">
+      <span>×</span>
+      <input type="number" id="lo-height" class="size-input" value="1080" min="1">
+      <button class="btn btn-sm" id="btn-lo-from-csp" title="Use CSP canvas size">CSP</button>
+      <button class="btn btn-sm" id="btn-lo-from-comp" title="Use AE comp size">Comp</button>
+    </div>
+    <div class="option-row">
+      <span>Target:</span>
+      <select id="target-select">
+        <option value="selected">Selected layer</option>
+        <option value="null">New Null layer</option>
+      </select>
+    </div>
+    <div class="import-row">
+      <button class="btn btn-primary" id="btn-import" disabled>Import Keyframes</button>
+    </div>
+  </div>
+
+  <div class="status-bar" id="status-bar">Ready</div>
+
+  <script src="js/CSInterface.js"></script>
+  <script src="js/curve-canvas.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
