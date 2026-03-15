@@ -220,10 +220,20 @@ body {
 .prop-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  padding: 8px 10px;
+  gap: 3px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.prop-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.prop-col + .prop-col {
+  margin-left: 3px;
 }
 
 .prop-tag {

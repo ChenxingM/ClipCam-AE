@@ -88,18 +88,43 @@ class CurveCanvas {
   _y2v(y){return this.viewY-y/this.scaleY;}
 
   _fitView() {
-    var kfs=[];
-    for(var c of this.curves) for(var k of c.keyframes) kfs.push(k);
-    if(!kfs.length){this.viewX=this.startFrame;this.viewY=0;this.scaleX=Math.max(1,(this._w-60)/Math.max(1,this.endFrame-this.startFrame));this.scaleY=1;return;}
-    var minF=Math.min(this.startFrame,...kfs.map(k=>k.frame));
-    var maxF=Math.max(this.endFrame,...kfs.map(k=>k.frame));
-    var minV=Math.min(...kfs.map(k=>k.value));
-    var maxV=Math.max(...kfs.map(k=>k.value));
-    var fs=Math.max(1,maxF-minF),vs=maxV-minV;
-    if(vs<1e-6){vs=10;minV-=5;}
-    var m=40;
-    this.scaleX=(this._w-m*2)/fs; this.scaleY=(this._h-m*2)/vs;
-    this.viewX=minF-m/this.scaleX; this.viewY=maxV+m/this.scaleY;
+    // Collect keyframes from VISIBLE curves only (or all if none visible)
+    var kfs = [];
+    for (var ci = 0; ci < this.curves.length; ci++) {
+      if (this.visibleSet.size > 0 && !this.visibleSet.has(ci)) continue;
+      for (var k of this.curves[ci].keyframes) kfs.push(k);
+    }
+    if (!kfs.length) {
+      // Fallback: use all curves
+      for (var c of this.curves) for (var k of c.keyframes) kfs.push(k);
+    }
+    if (!kfs.length) {
+      this.viewX = this.startFrame; this.viewY = 0;
+      this.scaleX = Math.max(1, (this._w-60) / Math.max(1, this.endFrame-this.startFrame));
+      this.scaleY = 1; return;
+    }
+
+    // Fit to keyframe data range (not timeline endFrame which may be much larger)
+    var minF = Infinity, maxF = -Infinity, minV = Infinity, maxV = -Infinity;
+    for (var k of kfs) {
+      if (k.frame < minF) minF = k.frame;
+      if (k.frame > maxF) maxF = k.frame;
+      if (k.value < minV) minV = k.value;
+      if (k.value > maxV) maxV = k.value;
+    }
+    // Add small padding around data range
+    var fPad = Math.max(1, (maxF - minF) * 0.08);
+    var vPad = Math.max(1, (maxV - minV) * 0.08);
+    minF -= fPad; maxF += fPad;
+    minV -= vPad; maxV += vPad;
+
+    var fs = Math.max(1, maxF - minF), vs = maxV - minV;
+    if (vs < 1e-6) { vs = 10; minV -= 5; }
+    var mx = 36, my = 30;
+    this.scaleX = (this._w - mx*2) / fs;
+    this.scaleY = (this._h - my*2) / vs;
+    this.viewX = minF - mx / this.scaleX;
+    this.viewY = maxV + my / this.scaleY;
   }
 
   _clampView() {
@@ -123,44 +148,62 @@ class CurveCanvas {
   _resize() {
     var dpr=window.devicePixelRatio||1;
     var par=this.canvas.parentElement;
-    // Use clientWidth/Height to exclude border
-    this._w=par.clientWidth; this._h=par.clientHeight;
-    this.canvas.width=this._w*dpr; this.canvas.height=this._h*dpr;
-    this.canvas.style.width=this._w+"px"; this.canvas.style.height=this._h+"px";
-    this.ctx.setTransform(dpr,0,0,dpr,0,0);
+    // Use getBoundingClientRect for actual rendered size, subtract border (1px each side)
+    var r = par.getBoundingClientRect();
+    this._w = Math.floor(r.width) - 2;
+    this._h = Math.floor(r.height) - 2;
+    if (this._w < 1) this._w = 1;
+    if (this._h < 1) this._h = 1;
+    this.canvas.width = this._w * dpr;
+    this.canvas.height = this._h * dpr;
+    this.canvas.style.width = this._w + "px";
+    this.canvas.style.height = this._h + "px";
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
   _color(ci){return PROP_COLORS[this.curves[ci].label]||CURVE_COLORS[ci%CURVE_COLORS.length];}
 
   // ── Render ──
   render() {
-    var ctx=this.ctx,w=this._w,h=this._h;
+    // Always check if parent size changed
+    var par = this.canvas.parentElement;
+    var r = par.getBoundingClientRect();
+    var newW = Math.floor(r.width) - 2, newH = Math.floor(r.height) - 2;
+    if (newW !== this._w || newH !== this._h) this._resize();
+    var ctx=this.ctx, w=this._w, h=this._h;
+    if (w < 10 || h < 10) return;
+    ctx.save();
     ctx.clearRect(0,0,w,h);
-    // Rounded clip region
-    var cr = 8;
-    ctx.beginPath();
-    ctx.moveTo(cr,0); ctx.lineTo(w-cr,0); ctx.arcTo(w,0,w,cr,cr);
-    ctx.lineTo(w,h-cr); ctx.arcTo(w,h,w-cr,h,cr);
-    ctx.lineTo(cr,h); ctx.arcTo(0,h,0,h-cr,cr);
-    ctx.lineTo(0,cr); ctx.arcTo(0,0,cr,0,cr);
-    ctx.closePath(); ctx.clip();
     ctx.fillStyle=COLOR_BG; ctx.fillRect(0,0,w,h);
-    if(!this.curves.length) return;
-    this._drawGrid(w,h);
-    this._drawCurves();
+    if(this.curves.length) {
+      this._drawGrid(w,h);
+      this._drawCurves();
+    }
     this._drawToolbar();
+    ctx.restore();
   }
 
   _drawGrid(w,h) {
     var ctx=this.ctx;
     ctx.font="9px Consolas,monospace";
-    var fpx=1/this.scaleX,vpx=1/this.scaleY;
-    var fS=_niceStep(fpx*70),vS=_niceStep(vpx*50);
-    var f=Math.floor(this._x2f(0)/fS)*fS,fE=this._x2f(w);
-    while(f<=fE){var x=this._f2x(f);var maj=fS>=1&&Math.round(f)%Math.max(1,Math.round(fS*5))===0;
-      ctx.strokeStyle=Math.abs(f)<.01?COLOR_AXIS:(maj?COLOR_GRID_MAJ:COLOR_GRID);ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();
-      ctx.fillStyle=COLOR_TEXT;ctx.fillText(fS>=1?Math.round(f)+"":f.toFixed(1),x+3,h-5);f+=fS;}
+    var fpx=1/this.scaleX, vpx=1/this.scaleY;
+
+    // Frame grid — always integer steps, labeled as frame numbers
+    var fStep = Math.max(1, Math.round(_niceStep(fpx*60)));
+    var fStart = Math.max(1, Math.floor(this._x2f(0)/fStep)*fStep);
+    var fEnd = this._x2f(w);
+    for (var f=fStart; f<=fEnd; f+=fStep) {
+      var x = this._f2x(f);
+      var major = f % Math.max(1, fStep*5) === 0;
+      ctx.strokeStyle = major ? COLOR_GRID_MAJ : COLOR_GRID;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+      ctx.fillStyle = COLOR_TEXT;
+      ctx.fillText(f+"f", x+3, h-5);
+    }
+
+    // Value grid
+    var vS=_niceStep(vpx*50);
     var v=Math.floor(this._y2v(h)/vS)*vS,vE=this._y2v(0);
     while(v<=vE){var y=this._v2y(v);ctx.strokeStyle=Math.abs(v)<vS*.01?COLOR_AXIS:COLOR_GRID;
       ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();
@@ -248,31 +291,61 @@ class CurveCanvas {
 
   // ── Toolbar (bottom-right corner) ──
   _drawToolbar() {
-    var ctx=this.ctx, bsz=22, gap=4, pad=8;
+    var ctx=this.ctx, w=this._w, h=this._h;
+    var bsz=24, gap=3, pad=10, cr=6;
     var btns = [
-      {id:"fit", icon:"⊡"},
+      {id:"fit", icon:"⊞"},
       {id:"zin", icon:"+"},
       {id:"zout",icon:"−"},
-      {id:"hmode",icon:this.handleMode==="symmetric"?"⟷":"→"},
+      {id:"hmode",icon:this.handleMode==="symmetric"?"⇔":"→"},
     ];
-    var totalW = btns.length*(bsz+gap)-gap;
-    var ox = this._w - pad - totalW, oy = this._h - pad - bsz;
+
+    // Draw as a single connected bar
+    var totalW = btns.length*bsz + (btns.length-1)*gap + pad*2;
+    var barH = bsz + pad;
+    var barX = w - totalW - 6;
+    var barY = h - barH - 6;
+
+    // Bar background
+    ctx.save();
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = "#1a1a1a";
+    ctx.beginPath();
+    ctx.moveTo(barX+cr, barY);
+    ctx.arcTo(barX+totalW, barY, barX+totalW, barY+barH, cr);
+    ctx.arcTo(barX+totalW, barY+barH, barX, barY+barH, cr);
+    ctx.arcTo(barX, barY+barH, barX, barY, cr);
+    ctx.arcTo(barX, barY, barX+totalW, barY, cr);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
     this._toolbarBtns = [];
     for (var i=0; i<btns.length; i++) {
-      var bx = ox + i*(bsz+gap);
-      ctx.fillStyle = "rgba(30,30,30,0.85)";
+      var bx = barX + pad + i*(bsz+gap);
+      var by = barY + (barH-bsz)/2;
+
+      // Button bg on hover
+      ctx.fillStyle = "rgba(255,255,255,0.05)";
       ctx.beginPath();
-      var cr=5;
-      ctx.moveTo(bx+cr,oy);ctx.arcTo(bx+bsz,oy,bx+bsz,oy+bsz,cr);
-      ctx.arcTo(bx+bsz,oy+bsz,bx,oy+bsz,cr);ctx.arcTo(bx,oy+bsz,bx,oy,cr);
-      ctx.arcTo(bx,oy,bx+bsz,oy,cr);ctx.closePath();ctx.fill();
-      ctx.strokeStyle="rgba(255,255,255,0.08)";ctx.lineWidth=1;ctx.stroke();
-      ctx.fillStyle="#999";ctx.font="12px 'Segoe UI',sans-serif";
-      ctx.textAlign="center";ctx.textBaseline="middle";
-      ctx.fillText(btns[i].icon, bx+bsz/2, oy+bsz/2);
-      ctx.textAlign="start";ctx.textBaseline="alphabetic";
-      this._toolbarBtns.push({x:bx,y:oy,w:bsz,h:bsz,id:btns[i].id});
+      ctx.moveTo(bx+4,by); ctx.arcTo(bx+bsz,by,bx+bsz,by+bsz,4);
+      ctx.arcTo(bx+bsz,by+bsz,bx,by+bsz,4); ctx.arcTo(bx,by+bsz,bx,by,4);
+      ctx.arcTo(bx,by,bx+bsz,by,4); ctx.closePath(); ctx.fill();
+
+      ctx.fillStyle = "#aaa";
+      ctx.font = "13px 'Segoe UI', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(btns[i].icon, bx+bsz/2, by+bsz/2);
+
+      this._toolbarBtns.push({x:bx, y:by, w:bsz, h:bsz, id:btns[i].id});
     }
+    ctx.textAlign = "start";
+    ctx.textBaseline = "alphabetic";
+    ctx.restore();
   }
 
   _hitToolbar(mx,my) {

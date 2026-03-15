@@ -52,6 +52,7 @@
       csInterface.evalScript('$.evalFile("' + jsxPath + '")');
 
       curveCanvas = new CurveCanvas(document.getElementById("curve-canvas"));
+      window._cc = curveCanvas; // debug access
 
       // Button bindings
       document.getElementById("btn-open-empty").addEventListener("click", openFile);
@@ -131,14 +132,20 @@
     // Header info
     document.getElementById("hdr-info").textContent =
       fn + "  |  " + d.frameRate + "fps  |  " + d.canvasWidth + "\u00d7" + d.canvasHeight +
-      "  |  f" + d.startFrame + "\u2013" + d.endFrame;
+      "  |  Frame " + d.startFrame + "\u2013" + d.endFrame;
 
-    // Curve canvas
-    setTimeout(function () {
+    // Build prop tags first (affects layout), then resize canvas
+    // Collect which indices should be visible
+    var activeIndices = buildPropTags(d.fcurves);
+    // Wait for layout to settle, then size canvas correctly
+    requestAnimationFrame(function () {
       curveCanvas._resize();
       curveCanvas.setCurves(d.fcurves, d.startFrame, d.endFrame);
-      buildPropTags(d.fcurves);
-    }, 50);
+      // Restore visibility AFTER setCurves (which clears visibleSet)
+      for (var i = 0; i < activeIndices.length; i++) {
+        curveCanvas.setVisible(activeIndices[i], true);
+      }
+    });
 
     // LO size
     document.getElementById("lo-width").value = d.canvasWidth;
@@ -149,40 +156,67 @@
 
   // ── Property tags ──
 
+  // Group layout: [Anchor X/Y] [Position X/Y] [Rotation, Scale] [Opacity]
+  var PROP_GROUPS = [
+    ["ImageCenter.X", "ImageCenter.Y"],
+    ["ImagePosition.X", "ImagePosition.Y"],
+    ["ImageRotation", "ImageScale"],
+    ["Opacity"],
+  ];
+
   function buildPropTags(fcurves) {
     var bar = document.getElementById("prop-bar");
     bar.innerHTML = "";
+    var activeIndices = [];
 
-    for (var i=0; i<fcurves.length; i++) {
-      var fc = fcurves[i];
-      var noKf = !fc.keyframes || fc.keyframes.length===0;
-      var staticProp = isStatic(fc);
-      var col = LABEL_COLORS[fc.label] || CURVE_COLORS[i%CURVE_COLORS.length];
-      var kfCount = fc.keyframes.length;
-      var name = aeDisplayName(fc);
-      var defaultOn = !staticProp;
+    // Build index map: label → fcurve index
+    var labelToIdx = {};
+    for (var i = 0; i < fcurves.length; i++) labelToIdx[fcurves[i].label] = i;
 
-      var tag = document.createElement("button");
-      tag.className = "prop-tag" + (defaultOn ? " active" : "") + (noKf ? " disabled" : "");
-      tag.setAttribute("data-index", i);
+    for (var gi = 0; gi < PROP_GROUPS.length; gi++) {
+      var group = PROP_GROUPS[gi];
+      var col = document.createElement("div");
+      col.className = "prop-col";
 
-      var statusTxt = noKf ? "const" : (staticProp ? kfCount+"kf\u2248" : kfCount+"kf");
-      tag.innerHTML =
-        '<span class="prop-dot" style="background:'+col+'"></span>' +
-        '<span class="prop-label">'+name+'</span>' +
-        '<span class="prop-kf">'+statusTxt+'</span>';
+      for (var pi = 0; pi < group.length; pi++) {
+        var label = group[pi];
+        var idx = labelToIdx[label];
+        if (idx === undefined) continue;
+        var fc = fcurves[idx];
 
-      if (!noKf) {
-        (function(idx, on) {
-          curveCanvas.setVisible(idx, on);
-          tag.addEventListener("click", function() {
-            var isActive = this.classList.toggle("active");
-            curveCanvas.setVisible(idx, isActive);
-          });
-        })(i, defaultOn);
+        var noKf = !fc.keyframes || fc.keyframes.length === 0;
+        var staticProp = isStatic(fc);
+        var color = LABEL_COLORS[fc.label] || CURVE_COLORS[idx % CURVE_COLORS.length];
+        var kfCount = fc.keyframes.length;
+        var name = aeDisplayName(fc);
+        var defaultOn = !staticProp;
+
+        if (defaultOn) activeIndices.push(idx);
+
+        var tag = document.createElement("button");
+        tag.className = "prop-tag" + (defaultOn ? " active" : "") + (noKf ? " disabled" : "");
+        tag.setAttribute("data-index", idx);
+
+        var statusTxt = noKf ? "const" : (staticProp ? kfCount + "kf\u2248" : kfCount + "kf");
+        tag.innerHTML =
+          '<span class="prop-dot" style="background:' + color + '"></span>' +
+          '<span class="prop-label">' + name + '</span>' +
+          '<span class="prop-kf">' + statusTxt + '</span>';
+
+        if (!noKf) {
+          (function (i2) {
+            tag.addEventListener("click", function () {
+              var isActive = this.classList.toggle("active");
+              curveCanvas.setVisible(i2, isActive);
+            });
+          })(idx);
+        }
+        col.appendChild(tag);
       }
-      bar.appendChild(tag);
+
+      if (col.childNodes.length > 0) bar.appendChild(col);
     }
+    return activeIndices;
   }
 
   // ── Import ──
