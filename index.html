@@ -16,7 +16,7 @@
         <path d="M16 8H32C33.1 8 34 8.9 34 10V18H14V10C14 8.9 14.9 8 16 8Z" stroke="currentColor" stroke-width="1.5"/>
         <path d="M24 24V34M24 34L19 29M24 34L29 29" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <button class="drop-btn" id="btn-open-empty">Open .clipcam</button>
+      <button class="drop-btn" id="btn-open-empty">Open .clip / .clipcam</button>
       <span class="drop-hint">or drag &amp; drop here</span>
     </div>
   </div>
@@ -30,6 +30,7 @@
         <span class="hdr-title">ClipCam for AE</span>
         <span class="hdr-info" id="hdr-info"></span>
       </div>
+      <select id="cam-select" class="ctrl-select" style="display:none"></select>
       <button class="hdr-btn" id="btn-open">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5"/></svg>
         Open
@@ -50,8 +51,8 @@
         <div class="ctrl-group">
           <label class="ctrl-label">Mode</label>
           <select id="mode-select" class="ctrl-select">
-            <option value="cam_frame">Cam Frame</option>
-            <option value="lo_layer">LO Layer</option>
+            <option value="cam_frame">Camera Frame</option>
+            <option value="lo_layer">LO Comp Layer</option>
           </select>
         </div>
         <div class="ctrl-group">
@@ -76,7 +77,7 @@
       </div>
       <div class="action-row">
         <span class="status-text" id="status-bar"></span>
-        <button class="import-btn" id="btn-import" disabled>Import Keyframes</button>
+        <button class="import-btn" id="btn-import" disabled>Apply</button>
       </div>
     </footer>
 
@@ -88,11 +89,11 @@
       <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
         <path d="M24 24V34M24 34L19 29M24 34L29 29" stroke="#2D8CEB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <span>Drop .clipcam file</span>
+      <span>Drop .clip / .clipcam file</span>
     </div>
   </div>
 
-  <input type="file" id="file-input" accept=".clipcam" style="display:none">
+  <input type="file" id="file-input" accept=".clipcam,.clip" style="display:none">
 
   <script src="js/CSInterface.js"></script>
   <script src="js/curve-canvas.js"></script>
