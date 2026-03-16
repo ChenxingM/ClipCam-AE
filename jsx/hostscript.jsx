@@ -332,7 +332,7 @@ function extendCompDuration(newDuration) {
 // ── File dialog (fallback for CEP file input) ──
 
 function openFileDialog() {
-    var f = File.openDialog("Select .clipcam file", "ClipCam Files:*.clipcam,All Files:*.*");
+    var f = File.openDialog("Select file", "CLIP Studio:*.clip,ClipCam:*.clipcam,All Files:*.*");
     if (f) {
         return f.fsName;
     }

@@ -3,7 +3,8 @@
  */
 (function () {
   var csInterface, parser, extRoot;
-  var camData = null;
+  var fileData = null;  // { cameras: [...] } from parser
+  var camData = null;   // currently selected camera
   var curveCanvas = null;
 
   // ── AE property names + colors ──
@@ -217,6 +218,9 @@
       document.getElementById("btn-open-empty").addEventListener("click", openFile);
       document.getElementById("btn-open").addEventListener("click", openFile);
       document.getElementById("btn-import").addEventListener("click", importToAE);
+      document.getElementById("cam-select").addEventListener("change", function () {
+        selectCamera(parseInt(this.value));
+      });
       document.getElementById("btn-lo-from-csp").addEventListener("click", function () {
         if (camData) {
           document.getElementById("lo-width").value = camData.canvasWidth;
@@ -252,7 +256,12 @@
 
   function openFile() {
     csInterface.evalScript("openFileDialog()", function (result) {
-      if (result && result !== "null" && result !== "undefined" && result !== "EvalScript error.") loadFile(result);
+      if (!result || result === "null" || result === "undefined" || result === "EvalScript error.") return;
+      if (result.toLowerCase().indexOf(".clip") >= 0 && result.toLowerCase().indexOf(".clipcam") < 0) {
+        convertAndLoad(result);
+      } else {
+        loadFile(result);
+      }
     });
   }
 
@@ -269,16 +278,61 @@
       var uri = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
       if (uri) { uri=uri.trim(); if(uri.indexOf("file:///")===0) filePath=decodeURIComponent(uri.substring(8)).replace(/\//g,"\\"); }
     }
-    if (filePath && filePath.toLowerCase().indexOf(".clipcam")>=0) loadFile(filePath);
-    else setStatus("Not a .clipcam file", "error");
+    if (filePath) {
+      var lower = filePath.toLowerCase();
+      if (lower.indexOf(".clipcam") >= 0) loadFile(filePath);
+      else if (lower.indexOf(".clip") >= 0) convertAndLoad(filePath);
+      else setStatus("Not a .clip or .clipcam file", "error");
+    }
+  }
+
+  function convertAndLoad(clipPath) {
+    clipPath = clipPath.replace(/\\/g, "/");
+    var nodePath = require("path");
+    var execFile = require("child_process").execFile;
+    var convExe = nodePath.join(extRoot, "bin", "clipcam-conv.exe");
+    var tmpOut = nodePath.join(require("os").tmpdir(), "clipcam_" + Date.now() + ".clipcam");
+    setStatus("Converting .clip...");
+    execFile(convExe, [clipPath, tmpOut], function (err, stdout, stderr) {
+      if (err) {
+        setStatus("Convert failed: " + (stderr || err.message), "error");
+        return;
+      }
+      try {
+        fileData = parser.parseClipCam(tmpOut.replace(/\\/g, "/"));
+        selectCamera(0, clipPath);
+      } catch (e) { setStatus("Error: " + e.message, "error"); }
+      try { require("fs").unlinkSync(tmpOut); } catch(e) {}
+    });
   }
 
   function loadFile(filePath) {
     try {
       filePath = filePath.replace(/\\/g, "/");
-      camData = parser.parseClipCam(filePath);
-      onFileLoaded(filePath);
+      fileData = parser.parseClipCam(filePath);
+      selectCamera(0, filePath);
     } catch (e) { setStatus("Error: " + e.message, "error"); }
+  }
+
+  function selectCamera(idx, filePath) {
+    if (!fileData || idx >= fileData.cameras.length) return;
+    camData = fileData.cameras[idx];
+    // Build camera selector
+    var sel = document.getElementById("cam-select");
+    if (fileData.cameras.length > 1) {
+      sel.innerHTML = "";
+      for (var i = 0; i < fileData.cameras.length; i++) {
+        var opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = fileData.cameras[i].name || ("Camera " + (i + 1));
+        sel.appendChild(opt);
+      }
+      sel.value = idx;
+      sel.style.display = "";
+    } else {
+      sel.style.display = "none";
+    }
+    onFileLoaded(filePath || "");
   }
 
   function onFileLoaded(filePath) {
