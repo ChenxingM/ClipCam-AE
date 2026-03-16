@@ -232,10 +232,11 @@ class CurveCanvas {
         var x0=this._f2x(k0.frame),y0=this._v2y(k0.value),x1=this._f2x(k1.frame),y1=this._v2y(k1.value);
         ctx.beginPath();
         if(k0.interpType===2){ctx.moveTo(x0,y0);ctx.lineTo(x1,y0);ctx.lineTo(x1,y1);}
-        else if(k0.interpType===1){ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);}
+        else if(k0.interpType===1&&k1.interpType!==0){ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);}
         else{var dx=(x1-x0)/3;ctx.moveTo(x0,y0);
-          ctx.bezierCurveTo(x0+dx,y0-k0.rightSlope*dx/this.scaleX*this.scaleY,
-            x1-dx,y1+k1.leftSlope*dx/this.scaleX*this.scaleY,x1,y1);}
+          var cp1y=k0.interpType===0?y0-k0.rightSlope*dx/this.scaleX*this.scaleY:y0+(y1-y0)/3;
+          var cp2y=k1.interpType===0?y1+k1.leftSlope*dx/this.scaleX*this.scaleY:y1-(y1-y0)/3;
+          ctx.bezierCurveTo(x0+dx,cp1y,x1-dx,cp2y,x1,y1);}
         ctx.stroke();
       }
 
@@ -527,9 +528,8 @@ class CurveCanvas {
       var ci=this._dragH[0],ki=this._dragH[1],dir=this._dragH[2];
       var kf=this.curves[ci].keyframes[ki];
       var cx=this._f2x(kf.frame),cy=this._v2y(kf.value);
-      var dx=(mx-cx)*dir; if(Math.abs(dx)<1)dx=1;
       var dy=-(my-cy);
-      var ns=(dy/dx)*(this.scaleX/this.scaleY);
+      var ns=dy/(HANDLE_LEN*dir)*(this.scaleX/this.scaleY);
       if(dir===-1) kf.leftSlope=ns; else kf.rightSlope=ns;
       // Symmetric mode: mirror to other handle
       if(this.handleMode==="symmetric"){
