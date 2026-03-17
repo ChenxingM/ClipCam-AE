@@ -24,10 +24,10 @@
   <!-- ═══ LOADED STATE ═══ -->
   <div id="loaded-state" class="loaded-state" style="display:none">
 
-    <!-- Header -->
+    <!-- Header (shared) -->
     <header class="hdr">
       <div class="hdr-left">
-        <span class="hdr-title">ClipCam for AE</span>
+        <span class="hdr-title">ClipCam</span>
         <span class="hdr-info" id="hdr-info"></span>
       </div>
       <select id="cam-select" class="ctrl-select" style="display:none"></select>
@@ -37,53 +37,89 @@
       </button>
     </header>
 
-    <!-- Curve editor -->
-    <div class="curve-wrap" id="curve-wrap">
-      <canvas id="curve-canvas"></canvas>
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab active" data-tab="camera">Camera</button>
+      <button class="tab" data-tab="layer">Layer<span class="tab-badge" id="layer-badge" style="display:none">0</span></button>
     </div>
 
-    <!-- Property tags -->
-    <div class="prop-bar" id="prop-bar"></div>
-
-    <!-- Bottom controls -->
-    <footer class="footer">
-      <div class="ctrl-row">
-        <div class="ctrl-group">
-          <label class="ctrl-label">Mode</label>
-          <select id="mode-select" class="ctrl-select">
-            <option value="cam_frame">Camera Frame</option>
-            <option value="lo_layer">LO Comp Layer</option>
-          </select>
-        </div>
-        <div class="ctrl-group">
-          <label class="ctrl-label">Target</label>
-          <select id="target-select" class="ctrl-select">
-            <option value="selected">Selected layer</option>
-            <option value="null">New Null</option>
-          </select>
-        </div>
-        <div class="ctrl-group">
-          <label class="ctrl-label">LO size</label>
-          <div class="lo-size-row">
-            <input type="number" id="lo-width" class="ctrl-num" value="1920">
-            <span class="lo-x">&times;</span>
-            <input type="number" id="lo-height" class="ctrl-num" value="1080">
-            <div class="lo-btns">
-              <button class="lo-btn" id="btn-lo-from-csp">CSP</button>
-              <button class="lo-btn" id="btn-lo-from-comp">Comp</button>
+    <!-- ── Camera tab ── -->
+    <div id="tab-camera" class="tab-panel active">
+      <div class="curve-wrap" id="curve-wrap">
+        <canvas id="curve-canvas"></canvas>
+      </div>
+      <div class="prop-bar" id="cam-prop-bar"></div>
+      <footer class="footer">
+        <div class="ctrl-row">
+          <div class="ctrl-group">
+            <label class="ctrl-label">Mode</label>
+            <select id="mode-select" class="ctrl-select">
+              <option value="cam_frame">Camera Frame</option>
+              <option value="lo_layer">LO Comp Layer</option>
+            </select>
+          </div>
+          <div class="ctrl-group">
+            <label class="ctrl-label">Target</label>
+            <select id="target-select" class="ctrl-select">
+              <option value="selected">Selected layer</option>
+              <option value="null">New Null</option>
+            </select>
+          </div>
+          <div class="ctrl-group">
+            <label class="ctrl-label">LO size</label>
+            <div class="lo-size-row">
+              <input type="number" id="lo-width" class="ctrl-num" value="1920">
+              <span class="lo-x">&times;</span>
+              <input type="number" id="lo-height" class="ctrl-num" value="1080">
+              <div class="lo-btns">
+                <button class="lo-btn" id="btn-lo-from-csp">CSP</button>
+                <button class="lo-btn" id="btn-lo-from-comp">Comp</button>
+              </div>
             </div>
           </div>
         </div>
+        <div class="action-row">
+          <span class="status-text" id="status-bar"></span>
+          <button class="import-btn" id="btn-import" disabled>Apply</button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- ── Layer tab ── -->
+    <div id="tab-layer" class="tab-panel">
+      <!-- Empty state (no transforms) -->
+      <div class="layer-empty" id="layer-empty">No layer transforms in this file</div>
+
+      <!-- Content (has transforms) -->
+      <div class="layer-content" id="layer-content" style="display:none">
+        <div class="layer-toolbar">
+          <button class="hdr-btn" id="btn-layer-refresh">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 4v6h6"/><path d="M3.5 15a9 9 0 105-8.2L1 10"/></svg>
+            Refresh
+          </button>
+          <button class="hdr-btn" id="btn-layer-automatch">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            Auto Match
+          </button>
+          <span class="layer-match-info" id="layer-match-info"></span>
+        </div>
+        <div class="layer-list-wrap" id="layer-list-wrap">
+          <!-- .layer-row items generated by JS -->
+        </div>
+        <div class="curve-wrap layer-curve-wrap" id="layer-curve-wrap">
+          <canvas id="layer-curve-canvas"></canvas>
+        </div>
+        <div class="prop-bar" id="layer-prop-bar"></div>
+        <div class="layer-footer">
+          <span class="status-text" id="layer-status"></span>
+          <button class="import-btn" id="btn-apply-transforms" disabled>Apply Transforms</button>
+        </div>
       </div>
-      <div class="action-row">
-        <span class="status-text" id="status-bar"></span>
-        <button class="import-btn" id="btn-import" disabled>Apply</button>
-      </div>
-    </footer>
+    </div>
 
   </div>
 
-  <!-- Drag overlay (shown during drag) -->
+  <!-- Drag overlay -->
   <div id="drag-overlay" class="drag-overlay">
     <div class="drag-overlay-inner">
       <svg width="32" height="32" viewBox="0 0 48 48" fill="none">

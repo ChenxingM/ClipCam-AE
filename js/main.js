@@ -1,23 +1,27 @@
 /**
- * ClipCamAE — main UI logic
+ * ClipCamAE — main UI logic (Camera + Layer tabs)
  */
 (function () {
   var csInterface, parser, extRoot;
-  var fileData = null;  // { cameras: [...] } from parser
-  var camData = null;   // currently selected camera
+  var fileData = null;   // { cameras:[], transforms:[], frameRate, ... }
+  var camData = null;    // currently selected camera block
   var curveCanvas = null;
+  var layerCurveCanvas = null;
+  var currentTab = "camera";
 
   // ── AE property names + colors ──
 
   window.AE_NAMES = {
-    "ImageCenter.X": "Anchor Point X",
-    "ImageCenter.Y": "Anchor Point Y",
+    "ImageCenter.X": "Anchor X",
+    "ImageCenter.Y": "Anchor Y",
     "ImagePosition.X": "Position X",
     "ImagePosition.Y": "Position Y",
     "ImageRotation": "Rotation",
     "ImageScale": "Scale",
     "Opacity": "Opacity",
     "_Speed": "Speed",
+    "ImageAspectScale.X": "Scale X",
+    "ImageAspectScale.Y": "Scale Y",
   };
 
   var LABEL_COLORS = {
@@ -29,6 +33,8 @@
     "ImageScale":     "#F76B8A",
     "Opacity":        "#B450E6",
     "_Speed":         "#FFB347",
+    "ImageAspectScale.X": "#F76B8A",
+    "ImageAspectScale.Y": "#e6b432",
   };
 
   function aeDisplayName(fc) { return window.AE_NAMES[fc.label] || fc.label; }
@@ -36,7 +42,7 @@
   function isStatic(fc) {
     if (!fc.keyframes || fc.keyframes.length === 0) return true;
     var v0 = fc.keyframes[0].value;
-    for (var i=1; i<fc.keyframes.length; i++) {
+    for (var i = 1; i < fc.keyframes.length; i++) {
       if (Math.abs(fc.keyframes[i].value - v0) > 1e-6) return false;
     }
     return true;
@@ -65,9 +71,7 @@
       if (fcurves[i].label === "ImagePosition.Y") posY = fcurves[i];
     }
     if (!posX || !posY || !posX.keyframes.length || !posY.keyframes.length) return null;
-    // Same keyframes as posX
-    var kfs = [];
-    var speeds = [];
+    var kfs = [], speeds = [];
     for (var ki = 0; ki < posX.keyframes.length; ki++) {
       var pk = posX.keyframes[ki];
       var spd = _speedAtFrame(posX, posY, pk.frame);
@@ -81,14 +85,9 @@
         interpType: pk.interpType,
       });
     }
-    // Estimate slopes from finite differences
     for (var ki = 0; ki < kfs.length; ki++) {
-      if (ki < kfs.length - 1) {
-        kfs[ki].rightSlope = (speeds[ki + 1] - speeds[ki]) / (kfs[ki + 1].frame - kfs[ki].frame);
-      }
-      if (ki > 0) {
-        kfs[ki].leftSlope = (speeds[ki] - speeds[ki - 1]) / (kfs[ki].frame - kfs[ki - 1].frame);
-      }
+      if (ki < kfs.length - 1) kfs[ki].rightSlope = (speeds[ki + 1] - speeds[ki]) / (kfs[ki + 1].frame - kfs[ki].frame);
+      if (ki > 0) kfs[ki].leftSlope = (speeds[ki] - speeds[ki - 1]) / (kfs[ki].frame - kfs[ki - 1].frame);
       if (ki === 0) kfs[ki].leftSlope = kfs[ki].rightSlope;
       if (ki === kfs.length - 1) kfs[ki].rightSlope = kfs[ki].leftSlope;
     }
@@ -98,8 +97,6 @@
     };
   }
 
-  // Refresh speed curve values from current X/Y data
-  // Only updates VALUES — preserves user-edited slopes/weights
   function refreshSpeedCurve() {
     if (!camData) return;
     var posX = _findFC("ImagePosition.X"), posY = _findFC("ImagePosition.Y");
@@ -110,7 +107,6 @@
     }
   }
 
-  // Propagate speed value edit → scale X/Y slopes
   var _speedDragOrig = null;
 
   function onSpeedDragStart(ki) {
@@ -121,7 +117,6 @@
     for (var i = 0; i < posX.keyframes.length; i++) {
       var px = posX.keyframes[i], py = posY.keyframes[i];
       var f = px.frame;
-      // Velocity direction from finite difference (actual motion direction)
       var vx = evaluateFCurveAtFrame(posX, f + 0.5) - evaluateFCurveAtFrame(posX, f - 0.5);
       var vy = evaluateFCurveAtFrame(posY, f + 0.5) - evaluateFCurveAtFrame(posY, f - 0.5);
       _speedDragOrig.push({
@@ -129,8 +124,7 @@
         pyL: py.leftSlope, pyR: py.rightSlope,
         pxLW: px.leftHandleWeight, pxRW: px.rightHandleWeight,
         pyLW: py.leftHandleWeight, pyRW: py.rightHandleWeight,
-        vx: vx, vy: vy,
-        speed: sc.keyframes[i].value,
+        vx: vx, vy: vy, speed: sc.keyframes[i].value,
       });
     }
   }
@@ -148,14 +142,11 @@
     var hasSlopes = Math.abs(orig.pxL) > 0.001 || Math.abs(orig.pxR) > 0.001 ||
                     Math.abs(orig.pyL) > 0.001 || Math.abs(orig.pyR) > 0.001;
     if (hasSlopes) {
-      // Scale existing slopes and weights
       px.leftSlope = orig.pxL * ratio; px.rightSlope = orig.pxR * ratio;
       py.leftSlope = orig.pyL * ratio; py.rightSlope = orig.pyR * ratio;
       px.leftHandleWeight = orig.pxLW * ratio; px.rightHandleWeight = orig.pxRW * ratio;
       py.leftHandleWeight = orig.pyLW * ratio; py.rightHandleWeight = orig.pyRW * ratio;
     } else {
-      // Slopes are all 0 — derive from actual motion direction
-      // Also promote to smooth so slopes actually affect the bezier
       px.leftSlope = orig.vx * ratio; px.rightSlope = orig.vx * ratio;
       py.leftSlope = orig.vy * ratio; py.rightSlope = orig.vy * ratio;
       if (px.interpType === 1) px.interpType = 0;
@@ -165,7 +156,6 @@
 
   function onSpeedDragEnd() { _speedDragOrig = null; }
 
-  // Propagate speed handle edit → copy weights to X/Y
   function onSpeedHandleMove(ki) {
     var posX = _findFC("ImagePosition.X"), posY = _findFC("ImagePosition.Y");
     var sc = _findFC("_Speed");
@@ -178,7 +168,9 @@
     py.rightHandleWeight = sk.rightHandleWeight;
   }
 
-  // ── Init ──
+  // ══════════════════════════════════════════════════════
+  // Init
+  // ══════════════════════════════════════════════════════
 
   function init() {
     try {
@@ -190,11 +182,10 @@
       var jsxPath = nodePath.join(extRoot, "jsx", "hostscript.jsx").replace(/\\/g, "/");
       csInterface.evalScript('$.evalFile("' + jsxPath + '")');
 
+      // Camera curve canvas
       curveCanvas = new CurveCanvas(document.getElementById("curve-canvas"));
       curveCanvas.onDragStart = function(ci, ki, type) {
-        if (camData && camData.fcurves[ci] && camData.fcurves[ci]._speedCurve && type === "kf") {
-          onSpeedDragStart(ki);
-        }
+        if (camData && camData.fcurves[ci] && camData.fcurves[ci]._speedCurve && type === "kf") onSpeedDragStart(ki);
       };
       curveCanvas.onDragUpdate = function(ci, ki, type) {
         if (!camData || !camData.fcurves[ci] || !camData.fcurves[ci]._speedCurve) return;
@@ -205,38 +196,48 @@
         if (!camData) return;
         if (info.type === "undo") { refreshSpeedCurve(); return; }
         var fc = info.ci >= 0 ? camData.fcurves[info.ci] : null;
-        if (fc && fc._speedCurve) {
-          onSpeedDragEnd();
-          refreshSpeedCurve(); // recompute from X/Y so speed stays accurate
-        } else {
-          refreshSpeedCurve();
-        }
+        if (fc && fc._speedCurve) { onSpeedDragEnd(); }
+        refreshSpeedCurve();
       };
-      window._cc = curveCanvas; // debug access
+
+      // Layer curve canvas
+      layerCurveCanvas = new CurveCanvas(document.getElementById("layer-curve-canvas"));
+
+      // Tab buttons
+      var tabs = document.querySelectorAll(".tab-bar .tab");
+      for (var i = 0; i < tabs.length; i++) {
+        (function(tab) {
+          tab.addEventListener("click", function() { switchTab(tab.getAttribute("data-tab")); });
+        })(tabs[i]);
+      }
 
       // Button bindings
       document.getElementById("btn-open-empty").addEventListener("click", openFile);
       document.getElementById("btn-open").addEventListener("click", openFile);
-      document.getElementById("btn-import").addEventListener("click", importToAE);
+      document.getElementById("btn-import").addEventListener("click", importCameraToAE);
       document.getElementById("cam-select").addEventListener("change", function () {
         selectCamera(parseInt(this.value));
       });
       document.getElementById("btn-lo-from-csp").addEventListener("click", function () {
-        if (camData) {
-          document.getElementById("lo-width").value = camData.canvasWidth;
-          document.getElementById("lo-height").value = camData.canvasHeight;
+        if (fileData) {
+          document.getElementById("lo-width").value = fileData.canvasWidth;
+          document.getElementById("lo-height").value = fileData.canvasHeight;
         }
       });
       document.getElementById("btn-lo-from-comp").addEventListener("click", function () {
         csInterface.evalScript("getCompInfo()", function (r) {
-          try { var c=JSON.parse(r); if(!c.error){ document.getElementById("lo-width").value=c.width; document.getElementById("lo-height").value=c.height; } } catch(e){}
+          try { var c = JSON.parse(r); if (!c.error) { document.getElementById("lo-width").value = c.width; document.getElementById("lo-height").value = c.height; } } catch (e) {}
         });
       });
+
+      // Layer tab buttons
+      document.getElementById("btn-layer-refresh").addEventListener("click", fetchAndBuildLayerList);
+      document.getElementById("btn-layer-automatch").addEventListener("click", function() { autoMatchLayers(); renderLayerList(); });
+      document.getElementById("btn-apply-transforms").addEventListener("click", applyTransformsToAE);
 
       // Drag & drop
       var dragCount = 0;
       function showDrag() {
-        // Only show overlay when file is loaded (has content to cover)
         var loaded = document.getElementById("loaded-state").style.display !== "none";
         if (loaded) document.getElementById("drag-overlay").classList.add("active");
         document.body.classList.add("dragging");
@@ -246,16 +247,10 @@
         document.getElementById("drag-overlay").classList.remove("active");
         document.body.classList.remove("dragging");
       }
-      document.body.addEventListener("dragenter", function (e) {
-        e.preventDefault(); dragCount++; showDrag();
-      });
-      document.body.addEventListener("dragleave", function (e) {
-        e.preventDefault(); dragCount--;
-        if (dragCount <= 0) hideDrag();
-      });
+      document.body.addEventListener("dragenter", function (e) { e.preventDefault(); dragCount++; showDrag(); });
+      document.body.addEventListener("dragleave", function (e) { e.preventDefault(); dragCount--; if (dragCount <= 0) hideDrag(); });
       document.body.addEventListener("dragover", function (e) { e.preventDefault(); });
       document.body.addEventListener("drop", function (e) { hideDrag(); onDrop(e); });
-      // Fallback: hide overlay if drag ends without drop (cursor left window)
       document.body.addEventListener("dragend", function () { hideDrag(); });
       window.addEventListener("blur", function () { if (dragCount > 0) hideDrag(); });
 
@@ -265,7 +260,44 @@
     }
   }
 
-  // ── File ops ──
+  // ══════════════════════════════════════════════════════
+  // Tab switching
+  // ══════════════════════════════════════════════════════
+
+  function switchTab(tabName) {
+    if (currentTab === tabName) return;
+    currentTab = tabName;
+
+    var tabs = document.querySelectorAll(".tab-bar .tab");
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].classList.toggle("active", tabs[i].getAttribute("data-tab") === tabName);
+    }
+
+    var panels = document.querySelectorAll(".tab-panel");
+    for (var i = 0; i < panels.length; i++) {
+      panels[i].classList.toggle("active", panels[i].id === "tab-" + tabName);
+    }
+
+    if (tabName === "layer") {
+      requestAnimationFrame(function () {
+        layerCurveCanvas._resize();
+        layerCurveCanvas.render();
+      });
+      // Auto-fetch layers if list is empty
+      if (_aeLayers.length === 0 && fileData && fileData.transforms.length > 0) {
+        fetchAndBuildLayerList();
+      }
+    } else {
+      requestAnimationFrame(function () {
+        curveCanvas._resize();
+        curveCanvas.render();
+      });
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
+  // File ops
+  // ══════════════════════════════════════════════════════
 
   function openFile() {
     csInterface.evalScript("openFileDialog()", function (result) {
@@ -284,11 +316,11 @@
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) filePath = e.dataTransfer.files[0].path || null;
     if (!filePath && e.dataTransfer.items && e.dataTransfer.items.length > 0) {
       var item = e.dataTransfer.items[0];
-      if (item.kind==="file") { var f=item.getAsFile(); if(f) filePath=f.path||null; }
+      if (item.kind === "file") { var f = item.getAsFile(); if (f) filePath = f.path || null; }
     }
     if (!filePath) {
       var uri = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
-      if (uri) { uri=uri.trim(); if(uri.indexOf("file:///")===0) filePath=decodeURIComponent(uri.substring(8)).replace(/\//g,"\\"); }
+      if (uri) { uri = uri.trim(); if (uri.indexOf("file:///") === 0) filePath = decodeURIComponent(uri.substring(8)).replace(/\//g, "\\"); }
     }
     if (filePath) {
       var lower = filePath.toLowerCase();
@@ -306,15 +338,12 @@
     var tmpOut = nodePath.join(require("os").tmpdir(), "clipcam_" + Date.now() + ".clipcam");
     setStatus("Converting .clip...");
     execFile(convExe, [clipPath, tmpOut], function (err, stdout, stderr) {
-      if (err) {
-        setStatus("Convert failed: " + (stderr || err.message), "error");
-        return;
-      }
+      if (err) { setStatus("Convert failed: " + (stderr || err.message), "error"); return; }
       try {
         fileData = parser.parseClipCam(tmpOut.replace(/\\/g, "/"));
-        selectCamera(0, clipPath);
+        onFileDataReady(clipPath);
       } catch (e) { setStatus("Error: " + e.message, "error"); }
-      try { require("fs").unlinkSync(tmpOut); } catch(e) {}
+      try { require("fs").unlinkSync(tmpOut); } catch (e) {}
     });
   }
 
@@ -322,14 +351,28 @@
     try {
       filePath = filePath.replace(/\\/g, "/");
       fileData = parser.parseClipCam(filePath);
-      selectCamera(0, filePath);
+      onFileDataReady(filePath);
     } catch (e) { setStatus("Error: " + e.message, "error"); }
   }
+
+  function onFileDataReady(filePath) {
+    // Reset layer state
+    _aeLayers = [];
+    _layerMatches = {};
+    _selectedLayerRow = -1;
+
+    selectCamera(0, filePath);
+    updateLayerTab();
+  }
+
+  // ══════════════════════════════════════════════════════
+  // Camera tab
+  // ══════════════════════════════════════════════════════
 
   function selectCamera(idx, filePath) {
     if (!fileData || idx >= fileData.cameras.length) return;
     camData = fileData.cameras[idx];
-    // Build camera selector
+
     var sel = document.getElementById("cam-select");
     if (fileData.cameras.length > 1) {
       sel.innerHTML = "";
@@ -344,50 +387,40 @@
     } else {
       sel.style.display = "none";
     }
-    onFileLoaded(filePath || "");
+    onCameraLoaded(filePath || "");
   }
 
-  function onFileLoaded(filePath) {
+  function onCameraLoaded(filePath) {
     var d = camData, fn = filePath.split(/[\\/]/).pop();
 
-    // Switch to loaded state
     document.getElementById("empty-state").style.display = "none";
     document.getElementById("loaded-state").style.display = "flex";
 
-    // Header info
     document.getElementById("hdr-info").textContent =
-      fn + "  |  " + d.frameRate + "fps  |  " + d.canvasWidth + "\u00d7" + d.canvasHeight +
-      "  |  Frame " + d.startFrame + "\u2013" + d.endFrame;
+      fn + "  |  " + fileData.frameRate + "fps  |  " + fileData.canvasWidth + "\u00d7" + fileData.canvasHeight +
+      "  |  f" + fileData.startFrame + "\u2013" + fileData.endFrame;
 
-    // Compute and append speed curve
-    d.fcurves = d.fcurves.filter(function(fc) { return !fc._speedCurve; });
-    var sc = computeSpeedCurve(d.fcurves, d.startFrame, d.endFrame);
+    // Speed curve
+    d.fcurves = d.fcurves.filter(function (fc) { return !fc._speedCurve; });
+    var sc = computeSpeedCurve(d.fcurves, fileData.startFrame, fileData.endFrame);
     if (sc) d.fcurves.push(sc);
 
-    // Build prop tags first (affects layout), then resize canvas
-    // Collect which indices should be visible
-    var activeIndices = buildPropTags(d.fcurves);
-    // Wait for layout to settle, then size canvas correctly
+    var activeIndices = buildPropTags(d.fcurves, "cam-prop-bar", CAM_PROP_GROUPS);
     requestAnimationFrame(function () {
       curveCanvas._resize();
-      curveCanvas.setCurves(d.fcurves, d.startFrame, d.endFrame);
-      // Restore visibility AFTER setCurves (which clears visibleSet)
-      for (var i = 0; i < activeIndices.length; i++) {
-        curveCanvas.setVisible(activeIndices[i], true);
-      }
+      curveCanvas.setCurves(d.fcurves, fileData.startFrame, fileData.endFrame);
+      for (var i = 0; i < activeIndices.length; i++) curveCanvas.setVisible(activeIndices[i], true);
     });
 
-    // LO size
-    document.getElementById("lo-width").value = d.canvasWidth;
-    document.getElementById("lo-height").value = d.canvasHeight;
+    document.getElementById("lo-width").value = fileData.canvasWidth;
+    document.getElementById("lo-height").value = fileData.canvasHeight;
     document.getElementById("btn-import").disabled = false;
     setStatus("Loaded " + fn);
   }
 
   // ── Property tags ──
 
-  // Group layout: [Anchor X/Y] [Position X/Y] [Rotation, Scale] [Opacity]
-  var PROP_GROUPS = [
+  var CAM_PROP_GROUPS = [
     ["ImageCenter.X", "ImageCenter.Y"],
     ["ImagePosition.X", "ImagePosition.Y"],
     ["ImageRotation", "ImageScale"],
@@ -395,17 +428,24 @@
     ["_Speed"],
   ];
 
-  function buildPropTags(fcurves) {
-    var bar = document.getElementById("prop-bar");
+  var LAYER_PROP_GROUPS = [
+    ["ImageAspectScale.X", "ImageAspectScale.Y"],
+    ["ImagePosition.X", "ImagePosition.Y"],
+    ["ImageCenter.X", "ImageCenter.Y"],
+    ["ImageRotation"],
+    ["Opacity"],
+  ];
+
+  function buildPropTags(fcurves, barId, groups) {
+    var bar = document.getElementById(barId);
     bar.innerHTML = "";
     var activeIndices = [];
-
-    // Build index map: label → fcurve index
     var labelToIdx = {};
     for (var i = 0; i < fcurves.length; i++) labelToIdx[fcurves[i].label] = i;
+    var canvas = barId === "cam-prop-bar" ? curveCanvas : layerCurveCanvas;
 
-    for (var gi = 0; gi < PROP_GROUPS.length; gi++) {
-      var group = PROP_GROUPS[gi];
+    for (var gi = 0; gi < groups.length; gi++) {
+      var group = groups[gi];
       var col = document.createElement("div");
       col.className = "prop-col";
 
@@ -414,20 +454,17 @@
         var idx = labelToIdx[label];
         if (idx === undefined) continue;
         var fc = fcurves[idx];
-
         var noKf = !fc.keyframes || fc.keyframes.length === 0;
         var staticProp = isStatic(fc);
         var color = LABEL_COLORS[fc.label] || CURVE_COLORS[idx % CURVE_COLORS.length];
         var kfCount = fc.keyframes.length;
         var name = aeDisplayName(fc);
         var defaultOn = !staticProp;
-
         if (defaultOn) activeIndices.push(idx);
 
         var tag = document.createElement("button");
         tag.className = "prop-tag" + (defaultOn ? " active" : "") + (noKf ? " disabled" : "");
         tag.setAttribute("data-index", idx);
-
         var statusTxt = fc._speedCurve ? "calc" : (noKf ? "const" : (staticProp ? kfCount + "kf\u2248" : kfCount + "kf"));
         tag.innerHTML =
           '<span class="prop-dot" style="background:' + color + '"></span>' +
@@ -435,89 +472,331 @@
           '<span class="prop-kf">' + statusTxt + '</span>';
 
         if (!noKf) {
-          (function (i2) {
+          (function (i2, cv) {
             tag.addEventListener("click", function () {
               var isActive = this.classList.toggle("active");
-              curveCanvas.setVisible(i2, isActive);
+              cv.setVisible(i2, isActive);
             });
-          })(idx);
+          })(idx, canvas);
         }
         col.appendChild(tag);
       }
-
       if (col.childNodes.length > 0) bar.appendChild(col);
     }
     return activeIndices;
   }
 
-  // ── Import ──
+  // ── Camera import ──
 
-  function importToAE() {
+  function importCameraToAE() {
     if (!camData) return;
     csInterface.evalScript("getCompInfo()", function (compResult) {
       try {
         var comp = JSON.parse(compResult);
-        if (comp.error) { setStatus("Error: "+comp.error, "error"); return; }
-        var dur = (camData.endFrame - camData.startFrame + 1) / camData.frameRate;
+        if (comp.error) { setStatus("Error: " + comp.error, "error"); return; }
+        var dur = (fileData.endFrame - fileData.startFrame + 1) / fileData.frameRate;
         if (comp.duration < dur - 0.01) {
-          if (confirm("Comp is shorter ("+comp.duration.toFixed(1)+"s) than clipcam ("+dur.toFixed(1)+"s).\n\nExtend comp?")) {
-            csInterface.evalScript("extendCompDuration("+dur+")", function(){ doImport(); }); return;
+          if (confirm("Comp is shorter (" + comp.duration.toFixed(1) + "s) than clipcam (" + dur.toFixed(1) + "s).\n\nExtend comp?")) {
+            csInterface.evalScript("extendCompDuration(" + dur + ")", function () { doCameraImport(); }); return;
           }
         }
-        doImport();
-      } catch(e) { doImport(); }
+        doCameraImport();
+      } catch (e) { doCameraImport(); }
     });
   }
 
-  function doImport() {
+  function doCameraImport() {
     setStatus("Importing...");
     var target = document.getElementById("target-select").value;
     var mode = document.getElementById("mode-select").value;
-    var loW = parseInt(document.getElementById("lo-width").value)||camData.canvasWidth;
-    var loH = parseInt(document.getElementById("lo-height").value)||camData.canvasHeight;
+    var loW = parseInt(document.getElementById("lo-width").value) || fileData.canvasWidth;
+    var loH = parseInt(document.getElementById("lo-height").value) || fileData.canvasHeight;
 
-    // Collect active tags
-    var activeTags = document.querySelectorAll("#prop-bar .prop-tag.active");
+    var activeTags = document.querySelectorAll("#cam-prop-bar .prop-tag.active");
     var sel = {};
-    for (var i=0;i<activeTags.length;i++) sel[activeTags[i].getAttribute("data-index")] = true;
+    for (var i = 0; i < activeTags.length; i++) sel[activeTags[i].getAttribute("data-index")] = true;
 
     var props = [];
-    for (var i=0; i<camData.fcurves.length; i++) {
+    for (var i = 0; i < camData.fcurves.length; i++) {
       if (!sel[String(i)] || camData.fcurves[i]._speedCurve) continue;
       var fc = camData.fcurves[i];
       var kfs = [];
-      for (var k=0; k<fc.keyframes.length; k++) {
+      for (var k = 0; k < fc.keyframes.length; k++) {
         var kf = fc.keyframes[k];
-        kfs.push({ frame:kf.frame, value:kf.value, leftSlope:kf.leftSlope, rightSlope:kf.rightSlope,
-                    leftHandleWeight:kf.leftHandleWeight, rightHandleWeight:kf.rightHandleWeight, interpType:kf.interpType });
+        kfs.push({ frame: kf.frame, value: kf.value, leftSlope: kf.leftSlope, rightSlope: kf.rightSlope,
+          leftHandleWeight: kf.leftHandleWeight, rightHandleWeight: kf.rightHandleWeight, interpType: kf.interpType });
       }
-      props.push({ name:fc.propertyName, axis:fc.axis, label:fc.label, defaultValue:fc.defaultValue, keyframes:kfs });
+      props.push({ name: fc.propertyName, axis: fc.axis, label: fc.label, defaultValue: fc.defaultValue, keyframes: kfs });
     }
 
     var payload = JSON.stringify({
-      frameRate:camData.frameRate, canvasWidth:camData.canvasWidth, canvasHeight:camData.canvasHeight,
-      startFrame:camData.startFrame, endFrame:camData.endFrame,
-      target:target, mode:mode, loWidth:loW, loHeight:loH, properties:props
+      frameRate: fileData.frameRate, canvasWidth: fileData.canvasWidth, canvasHeight: fileData.canvasHeight,
+      startFrame: fileData.startFrame, endFrame: fileData.endFrame,
+      target: target, mode: mode, loWidth: loW, loHeight: loH, properties: props
     });
 
-    csInterface.evalScript("importClipCamData("+JSON.stringify(payload)+")", function(result) {
+    csInterface.evalScript("importClipCamData(" + JSON.stringify(payload) + ")", function (result) {
       try {
         var res = JSON.parse(result);
-        if (res.error) setStatus("Error: "+res.error, "error");
-        else setStatus("\u2713 Imported "+props.length+" properties to "+(res.layerName||"layer"), "success");
-      } catch(e) { setStatus("Import failed", "error"); }
+        if (res.error) setStatus("Error: " + res.error, "error");
+        else setStatus("\u2713 Imported " + props.length + " properties to " + (res.layerName || "layer"), "success");
+      } catch (e) { setStatus("Import failed", "error"); }
     });
   }
 
-  // ── Status ──
+  // ══════════════════════════════════════════════════════
+  // Layer tab
+  // ══════════════════════════════════════════════════════
+
+  var _aeLayers = [];       // [{index, name}, ...]
+  var _layerMatches = {};   // aeIdx → transformIdx
+  var _selectedLayerRow = -1;
+
+  function updateLayerTab() {
+    var badge = document.getElementById("layer-badge");
+    var emptyEl = document.getElementById("layer-empty");
+    var contentEl = document.getElementById("layer-content");
+
+    if (!fileData || fileData.transforms.length === 0) {
+      badge.style.display = "none";
+      emptyEl.style.display = "flex";
+      contentEl.style.display = "none";
+      return;
+    }
+
+    badge.textContent = fileData.transforms.length;
+    badge.style.display = "";
+    emptyEl.style.display = "none";
+    contentEl.style.display = "flex";
+    document.getElementById("btn-apply-transforms").disabled = false;
+  }
+
+  function fetchAndBuildLayerList() {
+    csInterface.evalScript("getCompLayers()", function (r) {
+      try {
+        var data = JSON.parse(r);
+        if (data.error) {
+          setLayerStatus(data.error, "error");
+          return;
+        }
+        _aeLayers = data.layers || [];
+        autoMatchLayers();
+        renderLayerList();
+        if (_aeLayers.length > 0) selectLayerRow(0);
+      } catch (e) {
+        setLayerStatus("Failed to get layers", "error");
+      }
+    });
+  }
+
+  // ── Auto-match: startsWith, longest match wins ──
+
+  function autoMatchLayers() {
+    if (!fileData || !fileData.transforms.length) return;
+    _layerMatches = {};
+    var xfms = fileData.transforms;
+    var usedXfm = {};  // transformIdx → true (one-to-one)
+
+    for (var ai = 0; ai < _aeLayers.length; ai++) {
+      var aeName = _aeLayers[ai].name.toLowerCase();
+      var bestIdx = -1, bestLen = 0, ambiguous = false;
+
+      for (var xi = 0; xi < xfms.length; xi++) {
+        if (usedXfm[xi]) continue;
+        var xName = xfms[xi].name.toLowerCase();
+
+        // Exact
+        if (aeName === xName) { bestIdx = xi; bestLen = Infinity; ambiguous = false; break; }
+
+        // AE name starts with transform name
+        if (aeName.indexOf(xName) === 0 && xName.length > bestLen) {
+          bestIdx = xi; bestLen = xName.length; ambiguous = false;
+        } else if (aeName.indexOf(xName) === 0 && xName.length === bestLen && xi !== bestIdx) {
+          ambiguous = true;
+        }
+
+        // Transform name starts with AE name
+        if (xName.indexOf(aeName) === 0 && aeName.length > bestLen) {
+          bestIdx = xi; bestLen = aeName.length; ambiguous = false;
+        } else if (xName.indexOf(aeName) === 0 && aeName.length === bestLen && xi !== bestIdx) {
+          ambiguous = true;
+        }
+      }
+
+      if (bestIdx >= 0 && !ambiguous) {
+        _layerMatches[ai] = bestIdx;
+        usedXfm[bestIdx] = true;
+      }
+    }
+
+    var matchCount = Object.keys(_layerMatches).length;
+    document.getElementById("layer-match-info").textContent =
+      matchCount + "/" + _aeLayers.length + " matched";
+  }
+
+  function renderLayerList() {
+    var wrap = document.getElementById("layer-list-wrap");
+    wrap.innerHTML = "";
+    if (!fileData) return;
+    var xfms = fileData.transforms;
+
+    for (var ai = 0; ai < _aeLayers.length; ai++) {
+      var row = document.createElement("div");
+      row.className = "layer-row";
+      if (_layerMatches[ai] !== undefined) row.classList.add("matched");
+      if (ai === _selectedLayerRow) row.classList.add("selected");
+      row.setAttribute("data-ae-idx", ai);
+
+      var nameSpan = document.createElement("span");
+      nameSpan.className = "layer-name";
+      nameSpan.textContent = _aeLayers[ai].name;
+      nameSpan.title = _aeLayers[ai].name;
+
+      var arrow = document.createElement("span");
+      arrow.className = "layer-arrow";
+      arrow.textContent = "\u2192";
+
+      var select = document.createElement("select");
+      select.className = "layer-assign";
+      var optNone = document.createElement("option");
+      optNone.value = "";
+      optNone.textContent = "\u2014";
+      select.appendChild(optNone);
+      for (var xi = 0; xi < xfms.length; xi++) {
+        var opt = document.createElement("option");
+        opt.value = xi;
+        opt.textContent = xfms[xi].name;
+        select.appendChild(opt);
+      }
+      if (_layerMatches[ai] !== undefined) select.value = _layerMatches[ai];
+
+      // Events
+      (function (aeIdx, rowEl, selEl) {
+        rowEl.addEventListener("click", function (e) {
+          if (e.target === selEl) return; // don't select row when clicking dropdown
+          selectLayerRow(aeIdx);
+        });
+        selEl.addEventListener("change", function () {
+          var val = this.value;
+          if (val === "") {
+            delete _layerMatches[aeIdx];
+            rowEl.classList.remove("matched");
+          } else {
+            _layerMatches[aeIdx] = parseInt(val);
+            rowEl.classList.add("matched");
+          }
+          // Update match info
+          var matchCount = Object.keys(_layerMatches).length;
+          document.getElementById("layer-match-info").textContent =
+            matchCount + "/" + _aeLayers.length + " matched";
+          // Show this transform's curves
+          selectLayerRow(aeIdx);
+        });
+        selEl.addEventListener("click", function (e) { e.stopPropagation(); });
+      })(ai, row, select);
+
+      row.appendChild(nameSpan);
+      row.appendChild(arrow);
+      row.appendChild(select);
+      wrap.appendChild(row);
+    }
+  }
+
+  function selectLayerRow(aeIdx) {
+    _selectedLayerRow = aeIdx;
+
+    // Update row highlight
+    var rows = document.querySelectorAll(".layer-row");
+    for (var i = 0; i < rows.length; i++) {
+      rows[i].classList.toggle("selected", parseInt(rows[i].getAttribute("data-ae-idx")) === aeIdx);
+    }
+
+    // Show transform curves for this row's assigned transform
+    var xfmIdx = _layerMatches[aeIdx];
+    if (xfmIdx !== undefined && fileData && fileData.transforms[xfmIdx]) {
+      var xfm = fileData.transforms[xfmIdx];
+      var activeIndices = buildPropTags(xfm.fcurves, "layer-prop-bar", LAYER_PROP_GROUPS);
+      requestAnimationFrame(function () {
+        layerCurveCanvas._resize();
+        layerCurveCanvas.setCurves(xfm.fcurves, fileData.startFrame, fileData.endFrame);
+        for (var i = 0; i < activeIndices.length; i++) layerCurveCanvas.setVisible(activeIndices[i], true);
+      });
+    } else {
+      document.getElementById("layer-prop-bar").innerHTML = "";
+      layerCurveCanvas.clear();
+    }
+  }
+
+  // ── Apply transforms ──
+
+  function applyTransformsToAE() {
+    var matched = [];
+    for (var ai in _layerMatches) {
+      var xi = _layerMatches[ai];
+      if (fileData && fileData.transforms[xi]) {
+        matched.push({ aeLayer: _aeLayers[parseInt(ai)], transform: fileData.transforms[xi] });
+      }
+    }
+    if (matched.length === 0) { setLayerStatus("No matched layers", "error"); return; }
+
+    setLayerStatus("Applying 0/" + matched.length + "...");
+    var idx = 0;
+
+    function next() {
+      if (idx >= matched.length) {
+        setLayerStatus("\u2713 Applied " + matched.length + " layers", "success");
+        return;
+      }
+      setLayerStatus("Applying " + (idx + 1) + "/" + matched.length + "...");
+      var m = matched[idx];
+      var props = [];
+      for (var fi = 0; fi < m.transform.fcurves.length; fi++) {
+        var fc = m.transform.fcurves[fi];
+        if (!fc.keyframes || fc.keyframes.length === 0) continue;
+        var kfs = [];
+        for (var k = 0; k < fc.keyframes.length; k++) {
+          var kf = fc.keyframes[k];
+          kfs.push({ frame: kf.frame, value: kf.value, leftSlope: kf.leftSlope, rightSlope: kf.rightSlope,
+            leftHandleWeight: kf.leftHandleWeight, rightHandleWeight: kf.rightHandleWeight, interpType: kf.interpType });
+        }
+        props.push({ name: fc.propertyName, axis: fc.axis, label: fc.label, defaultValue: fc.defaultValue, keyframes: kfs });
+      }
+
+      var payload = JSON.stringify({
+        layerIndex: m.aeLayer.index,
+        frameRate: fileData.frameRate,
+        canvasWidth: fileData.canvasWidth,
+        canvasHeight: fileData.canvasHeight,
+        properties: props,
+      });
+
+      csInterface.evalScript("importLayerTransform(" + JSON.stringify(payload) + ")", function (result) {
+        try {
+          var res = JSON.parse(result);
+          if (res.error) { setLayerStatus("Error on " + m.aeLayer.name + ": " + res.error, "error"); return; }
+        } catch (e) {}
+        idx++;
+        next();
+      });
+    }
+    next();
+  }
+
+  // ── Status helpers ──
 
   function setStatus(msg, type) {
     var el = document.getElementById("status-bar");
     el.textContent = msg;
-    el.className = "status-text" + (type ? " "+type : "");
+    el.className = "status-text" + (type ? " " + type : "");
+  }
+
+  function setLayerStatus(msg, type) {
+    var el = document.getElementById("layer-status");
+    el.textContent = msg;
+    el.className = "status-text" + (type ? " " + type : "");
   }
 
   // ── Start ──
-  if (document.readyState==="loading") document.addEventListener("DOMContentLoaded", init);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();
