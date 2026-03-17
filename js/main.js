@@ -235,16 +235,29 @@
 
       // Drag & drop
       var dragCount = 0;
+      function showDrag() {
+        // Only show overlay when file is loaded (has content to cover)
+        var loaded = document.getElementById("loaded-state").style.display !== "none";
+        if (loaded) document.getElementById("drag-overlay").classList.add("active");
+        document.body.classList.add("dragging");
+      }
+      function hideDrag() {
+        dragCount = 0;
+        document.getElementById("drag-overlay").classList.remove("active");
+        document.body.classList.remove("dragging");
+      }
       document.body.addEventListener("dragenter", function (e) {
-        e.preventDefault(); dragCount++;
-        document.getElementById("drag-overlay").classList.add("active");
+        e.preventDefault(); dragCount++; showDrag();
       });
       document.body.addEventListener("dragleave", function (e) {
         e.preventDefault(); dragCount--;
-        if (dragCount <= 0) { dragCount=0; document.getElementById("drag-overlay").classList.remove("active"); }
+        if (dragCount <= 0) hideDrag();
       });
       document.body.addEventListener("dragover", function (e) { e.preventDefault(); });
-      document.body.addEventListener("drop", onDrop);
+      document.body.addEventListener("drop", function (e) { hideDrag(); onDrop(e); });
+      // Fallback: hide overlay if drag ends without drop (cursor left window)
+      document.body.addEventListener("dragend", function () { hideDrag(); });
+      window.addEventListener("blur", function () { if (dragCount > 0) hideDrag(); });
 
       setStatus("");
     } catch (e) {
@@ -267,7 +280,6 @@
 
   function onDrop(e) {
     e.preventDefault(); e.stopPropagation();
-    document.getElementById("drag-overlay").classList.remove("active");
     var filePath = null;
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) filePath = e.dataTransfer.files[0].path || null;
     if (!filePath && e.dataTransfer.items && e.dataTransfer.items.length > 0) {
