@@ -50,6 +50,10 @@ body {
   border-radius: 12px;
   transition: border-color 0.2s, background 0.2s;
 }
+.dragging .drop-zone {
+  border-color: var(--primary);
+  background: rgba(45, 140, 235, 0.06);
+}
 
 .drop-zone:hover {
   border-color: var(--dim);
@@ -94,14 +98,13 @@ body {
 .drag-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(45, 140, 235, 0.06);
-  border: 2px solid var(--primary);
-  border-radius: 0;
+  background: rgba(40, 40, 40, 0.95);
   z-index: 999;
   display: none;
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  padding: 24px;
 }
 .drag-overlay.active { display: flex; }
 
@@ -109,7 +112,12 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  width: 100%;
+  height: 100%;
+  border: 1.5px dashed var(--primary);
+  border-radius: 12px;
   color: var(--primary);
   font-size: 13px;
   font-weight: 500;
