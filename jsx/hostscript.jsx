@@ -329,6 +329,107 @@ function extendCompDuration(newDuration) {
     return JSON.stringify({ success: true, duration: newDuration });
 }
 
+// ── Get comp layers ──
+
+function getCompLayers() {
+    var comp = app.project.activeItem;
+    if (!(comp instanceof CompItem)) {
+        return JSON.stringify({ error: "No active composition" });
+    }
+    var layers = [];
+    for (var i = 1; i <= comp.numLayers; i++) {
+        layers.push({ index: i, name: comp.layer(i).name });
+    }
+    return JSON.stringify({ layers: layers });
+}
+
+// ── Import layer transform ──
+
+function importLayerTransform(jsonStr) {
+    try {
+        var data = JSON.parse(jsonStr);
+        var comp = app.project.activeItem;
+        if (!(comp instanceof CompItem)) {
+            return JSON.stringify({ error: "No active composition" });
+        }
+
+        var layer = comp.layer(data.layerIndex);
+        if (!layer) {
+            return JSON.stringify({ error: "Layer not found: index " + data.layerIndex });
+        }
+
+        app.beginUndoGroup("ClipCamAE Layer Transform");
+
+        var fps = data.frameRate;
+        var transform = layer.property("Transform");
+
+        for (var i = 0; i < data.properties.length; i++) {
+            var pd = data.properties[i];
+            if (!pd.keyframes || pd.keyframes.length === 0) continue;
+
+            if (pd.name === "ImageAspectScale") {
+                // Non-uniform scale → AE Scale [x, y]
+                var scaleProp = transform.property("Scale");
+                var axisIdx = pd.axis === "X" ? 0 : 1;
+                for (var k = 0; k < pd.keyframes.length; k++) {
+                    var time = (pd.keyframes[k].frame - 1) / fps;
+                    var cur = scaleProp.valueAtTime(time, false);
+                    var nv = [cur[0], cur[1]];
+                    nv[axisIdx] = pd.keyframes[k].value;
+                    scaleProp.setValueAtTime(time, nv);
+                }
+                applyEasing(scaleProp, pd.keyframes, fps, true);
+
+            } else if (pd.name === "ImagePosition") {
+                var posProp = transform.property("Position");
+                try { posProp.dimensionsSeparated = true; } catch (e) {}
+                if (posProp.dimensionsSeparated) {
+                    var sepProp = posProp.getSeparationFollower(pd.axis === "X" ? 0 : 1);
+                    for (var k = 0; k < pd.keyframes.length; k++) {
+                        var time = (pd.keyframes[k].frame - 1) / fps;
+                        sepProp.setValueAtTime(time, pd.keyframes[k].value);
+                    }
+                    applyEasing(sepProp, pd.keyframes, fps, false);
+                } else {
+                    var axisIdx = pd.axis === "X" ? 0 : 1;
+                    for (var k = 0; k < pd.keyframes.length; k++) {
+                        var time = (pd.keyframes[k].frame - 1) / fps;
+                        var cur = posProp.valueAtTime(time, false);
+                        var nv = [cur[0], cur[1]];
+                        nv[axisIdx] = pd.keyframes[k].value;
+                        posProp.setValueAtTime(time, nv);
+                    }
+                    applyEasing(posProp, pd.keyframes, fps, true);
+                }
+
+            } else if (pd.name === "ImageRotation") {
+                var rotProp = transform.property("Rotation");
+                for (var k = 0; k < pd.keyframes.length; k++) {
+                    var time = (pd.keyframes[k].frame - 1) / fps;
+                    rotProp.setValueAtTime(time, pd.keyframes[k].value);
+                }
+                applyEasing(rotProp, pd.keyframes, fps, false);
+
+            } else if (pd.name === "Opacity") {
+                var opProp = transform.property("Opacity");
+                for (var k = 0; k < pd.keyframes.length; k++) {
+                    var time = (pd.keyframes[k].frame - 1) / fps;
+                    opProp.setValueAtTime(time, pd.keyframes[k].value);
+                }
+                applyEasing(opProp, pd.keyframes, fps, false);
+            }
+            // ImageCenter is typically constant in transforms — skip
+        }
+
+        app.endUndoGroup();
+        return JSON.stringify({ success: true, layerName: layer.name });
+
+    } catch (e) {
+        try { app.endUndoGroup(); } catch (x) {}
+        return JSON.stringify({ error: e.toString() });
+    }
+}
+
 // ── File dialog (fallback for CEP file input) ──
 
 function openFileDialog() {
