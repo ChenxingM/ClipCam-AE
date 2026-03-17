@@ -152,14 +152,14 @@
 
 ---
 
-# clipcam-conv
+# clipcam-extractor
 
 从 Clip Studio Paint `.clip` 文件提取摄像机 + 图层变形动画数据并输出 `.clipcam` 格式。
 
 ## 用法
 
 ```
-clipcam-conv <input.clip> [output.clipcam]
+clipcam-extractor <input.clip> [output.clipcam]
 ```
 
 成功时输出文件路径到 stdout，失败时输出错误到 stderr。

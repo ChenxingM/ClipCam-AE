@@ -334,7 +334,7 @@
     clipPath = clipPath.replace(/\\/g, "/");
     var nodePath = require("path");
     var execFile = require("child_process").execFile;
-    var convExe = nodePath.join(extRoot, "bin", "clipcam-conv.exe");
+    var convExe = nodePath.join(extRoot, "bin", "clipcam-extractor.exe");
     var tmpOut = nodePath.join(require("os").tmpdir(), "clipcam_" + Date.now() + ".clipcam");
     setStatus("Converting .clip...");
     execFile(convExe, [clipPath, tmpOut], function (err, stdout, stderr) {
