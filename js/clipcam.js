@@ -1,6 +1,15 @@
 /**
- * .clipcam binary parser (Node.js Buffer)
- * Supports version 1 (single camera) and version 2 (multi-camera)
+ * .clipcam v3 binary parser (Node.js Buffer)
+ *
+ * v3 format (little-endian):
+ *   Header: "CLIPCAM\0" (8B), version u16=3, fps f64,
+ *           canvas_w u32, canvas_h u32, start u32, end u32
+ *   Camera section: count u16, [count × Block]
+ *   Transform section: count u16, [count × Block]
+ *   Block: name_len u8, name UTF-8, fcurve_count u16, [FCurves]
+ *   FCurve: label_len u8, label UTF-8, default f64, kf_count u32
+ *   Keyframe (45B): frame u32, value f64, leftSlope f64, rightSlope f64,
+ *                   leftHandleWeight f64, rightHandleWeight f64, interpType u8
  */
 
 const fs = require("fs");
@@ -9,20 +18,20 @@ const MAGIC = Buffer.from("CLIPCAM\0");
 const INTERP_NAMES = { 0: "smooth", 1: "linear", 2: "hold" };
 
 function parseClipCam(filePath) {
-  const buf = fs.readFileSync(filePath);
+  var buf = fs.readFileSync(filePath);
   return parseClipCamBuffer(buf);
 }
 
 function _parseFCurves(buf, pos, propCount) {
-  const fcurves = [];
-  for (let p = 0; p < propCount; p++) {
-    const nameLen = buf[pos]; pos += 1;
-    const rawLabel = buf.toString("utf8", pos, pos + nameLen); pos += nameLen;
-    const defaultValue = buf.readDoubleLE(pos); pos += 8;
-    const kfCount = buf.readUInt32LE(pos); pos += 4;
+  var fcurves = [];
+  for (var p = 0; p < propCount; p++) {
+    var nameLen = buf[pos]; pos += 1;
+    var rawLabel = buf.toString("utf8", pos, pos + nameLen); pos += nameLen;
+    var defaultValue = buf.readDoubleLE(pos); pos += 8;
+    var kfCount = buf.readUInt32LE(pos); pos += 4;
 
-    let propertyName, axis;
-    const dot = rawLabel.lastIndexOf(".");
+    var propertyName, axis;
+    var dot = rawLabel.lastIndexOf(".");
     if (dot >= 0) {
       propertyName = rawLabel.substring(0, dot);
       axis = rawLabel.substring(dot + 1);
@@ -31,32 +40,40 @@ function _parseFCurves(buf, pos, propCount) {
       axis = "";
     }
 
-    const keyframes = [];
-    for (let k = 0; k < kfCount; k++) {
-      const frame = buf.readUInt32LE(pos); pos += 4;
-      const value = buf.readDoubleLE(pos); pos += 8;
-      const leftSlope = buf.readDoubleLE(pos); pos += 8;
-      const rightSlope = buf.readDoubleLE(pos); pos += 8;
-      const leftHandleWeight = buf.readDoubleLE(pos); pos += 8;
-      const rightHandleWeight = buf.readDoubleLE(pos); pos += 8;
-      const autoSmooth = buf.readDoubleLE(pos); pos += 8;
-      const interpType = buf[pos]; pos += 1;
+    var keyframes = [];
+    for (var k = 0; k < kfCount; k++) {
+      var frame = buf.readUInt32LE(pos); pos += 4;
+      var value = buf.readDoubleLE(pos); pos += 8;
+      var leftSlope = buf.readDoubleLE(pos); pos += 8;
+      var rightSlope = buf.readDoubleLE(pos); pos += 8;
+      var leftHandleWeight = buf.readDoubleLE(pos); pos += 8;
+      var rightHandleWeight = buf.readDoubleLE(pos); pos += 8;
+      var interpType = buf[pos]; pos += 1;
 
       keyframes.push({
-        frame, value, leftSlope, rightSlope,
-        leftHandleWeight, rightHandleWeight, autoSmooth,
-        interpType,
+        frame: frame, value: value,
+        leftSlope: leftSlope, rightSlope: rightSlope,
+        leftHandleWeight: leftHandleWeight, rightHandleWeight: rightHandleWeight,
+        interpType: interpType,
         interpName: INTERP_NAMES[interpType] || "unknown",
       });
     }
 
     fcurves.push({
-      propertyName, axis,
-      label: axis ? `${propertyName}.${axis}` : propertyName,
-      defaultValue, keyframes,
+      propertyName: propertyName, axis: axis,
+      label: axis ? propertyName + "." + axis : propertyName,
+      defaultValue: defaultValue, keyframes: keyframes,
     });
   }
-  return { fcurves, pos };
+  return { fcurves: fcurves, pos: pos };
+}
+
+function _parseBlock(buf, pos) {
+  var nameLen = buf[pos]; pos += 1;
+  var name = buf.toString("utf8", pos, pos + nameLen); pos += nameLen;
+  var propCount = buf.readUInt16LE(pos); pos += 2;
+  var result = _parseFCurves(buf, pos, propCount);
+  return { name: name, fcurves: result.fcurves, pos: result.pos };
 }
 
 function parseClipCamBuffer(buf) {
@@ -64,50 +81,51 @@ function parseClipCamBuffer(buf) {
     throw new Error("Invalid .clipcam file");
   }
 
-  let pos = 8;
-  const version = buf.readUInt16LE(pos); pos += 2;
-
-  if (version === 1) {
-    // Version 1: single camera, no name
-    const frameRate = buf.readDoubleLE(pos); pos += 8;
-    const canvasWidth = buf.readUInt32LE(pos); pos += 4;
-    const canvasHeight = buf.readUInt32LE(pos); pos += 4;
-    const startFrame = buf.readUInt32LE(pos); pos += 4;
-    const endFrame = buf.readUInt32LE(pos); pos += 4;
-    const propCount = buf.readUInt16LE(pos); pos += 2;
-    const result = _parseFCurves(buf, pos, propCount);
-    return {
-      version,
-      cameras: [{
-        name: "Camera",
-        frameRate, canvasWidth, canvasHeight,
-        startFrame, endFrame, fcurves: result.fcurves,
-      }],
-    };
+  var pos = 8;
+  var version = buf.readUInt16LE(pos); pos += 2;
+  if (version !== 3) {
+    throw new Error("Unsupported .clipcam version: " + version + " (expected 3)");
   }
 
-  // Version 2: multi-camera
-  const camCount = buf.readUInt16LE(pos); pos += 2;
-  const cameras = [];
+  var frameRate = buf.readDoubleLE(pos); pos += 8;
+  var canvasWidth = buf.readUInt32LE(pos); pos += 4;
+  var canvasHeight = buf.readUInt32LE(pos); pos += 4;
+  var startFrame = buf.readUInt32LE(pos); pos += 4;
+  var endFrame = buf.readUInt32LE(pos); pos += 4;
 
-  for (let c = 0; c < camCount; c++) {
-    const nameLen = buf[pos]; pos += 1;
-    const name = buf.toString("utf8", pos, pos + nameLen); pos += nameLen;
-    const frameRate = buf.readDoubleLE(pos); pos += 8;
-    const canvasWidth = buf.readUInt32LE(pos); pos += 4;
-    const canvasHeight = buf.readUInt32LE(pos); pos += 4;
-    const startFrame = buf.readUInt32LE(pos); pos += 4;
-    const endFrame = buf.readUInt32LE(pos); pos += 4;
-    const propCount = buf.readUInt16LE(pos); pos += 2;
-    const result = _parseFCurves(buf, pos, propCount);
-    pos = result.pos;
+  // Camera section
+  var camCount = buf.readUInt16LE(pos); pos += 2;
+  var cameras = [];
+  for (var c = 0; c < camCount; c++) {
+    var block = _parseBlock(buf, pos);
+    pos = block.pos;
     cameras.push({
-      name, frameRate, canvasWidth, canvasHeight,
-      startFrame, endFrame, fcurves: result.fcurves,
+      name: block.name,
+      frameRate: frameRate, canvasWidth: canvasWidth, canvasHeight: canvasHeight,
+      startFrame: startFrame, endFrame: endFrame,
+      fcurves: block.fcurves,
     });
   }
 
-  return { version, cameras };
+  // Transform section
+  var xfmCount = buf.readUInt16LE(pos); pos += 2;
+  var transforms = [];
+  for (var t = 0; t < xfmCount; t++) {
+    var block = _parseBlock(buf, pos);
+    pos = block.pos;
+    transforms.push({
+      name: block.name,
+      fcurves: block.fcurves,
+    });
+  }
+
+  return {
+    version: 3,
+    frameRate: frameRate, canvasWidth: canvasWidth, canvasHeight: canvasHeight,
+    startFrame: startFrame, endFrame: endFrame,
+    cameras: cameras,
+    transforms: transforms,
+  };
 }
 
 // Export for Node.js (CEP mixed-context)
