@@ -6,7 +6,6 @@ var PROP_COLORS = {
   "ImageCenter.X":"#5082e6","ImageCenter.Y":"#e6b432",
   "ImagePosition.X":"#E65050","ImagePosition.Y":"#5EDD9E",
   "ImageRotation":"#4CC9F0","ImageScale":"#F76B8A","Opacity":"#B450E6",
-  "_Speed":"#FFB347",
 };
 var CURVE_COLORS = ["#E65050","#5EDD9E","#5082e6","#e6b432","#B450E6","#4CC9F0","#F76B8A"];
 var COLOR_BG="#1E1E1E",COLOR_GRID="#272727",COLOR_GRID_MAJ="#333",COLOR_AXIS="#444",COLOR_TEXT="#555";
@@ -38,8 +37,6 @@ class CurveCanvas {
     // Context menu element
     this._ctxMenu = null;
     this.onCurveEdited = null;
-    this.onDragStart = null;
-    this.onDragUpdate = null;
 
     this._bind();
     this._resize();
@@ -60,7 +57,6 @@ class CurveCanvas {
     // Deep snapshot of all keyframe values
     var snap = [];
     for (var c of this.curves) {
-      if(c._derived){snap.push(null);continue;}
       var kfs = [];
       for (var k of c.keyframes) kfs.push({frame:k.frame,value:k.value,leftSlope:k.leftSlope,rightSlope:k.rightSlope,leftHandleWeight:k.leftHandleWeight,rightHandleWeight:k.rightHandleWeight,interpType:k.interpType});
       snap.push(kfs);
@@ -242,9 +238,7 @@ class CurveCanvas {
       ctx.globalAlpha=active?1:.2;
 
       // Segments
-      var derived=!!fc._derived;
-      ctx.strokeStyle=col; ctx.lineWidth=active?(derived?2:1.8):1;
-      if(derived) ctx.setLineDash([4,3]);
+      ctx.strokeStyle=col; ctx.lineWidth=active?1.8:1;
       for(var i=0;i<kfs.length-1;i++){
         var k0=kfs[i],k1=kfs[i+1];
         var x0=this._f2x(k0.frame),y0=this._v2y(k0.value),x1=this._f2x(k1.frame),y1=this._v2y(k1.value);
@@ -260,10 +254,9 @@ class CurveCanvas {
           ctx.bezierCurveTo(x0+dxr,cp1y,x1-dxl,cp2y,x1,y1);}
         ctx.stroke();
       }
-      if(derived) ctx.setLineDash([]);
 
-      // Handles (skip for derived curves)
-      if(active&&!derived){
+      // Handles
+      if(active){
         for(var ki=0;ki<kfs.length;ki++){
           var kf=kfs[ki]; if(kf.interpType!==0) continue;
           var cx=this._f2x(kf.frame),cy=this._v2y(kf.value);
@@ -278,8 +271,8 @@ class CurveCanvas {
         }
       }
 
-      // Keyframe diamonds (skip for derived curves)
-      if(!derived) for(var ki=0;ki<kfs.length;ki++){
+      // Keyframe diamonds
+      for(var ki=0;ki<kfs.length;ki++){
         var kf=kfs[ki],x=this._f2x(kf.frame),y=this._v2y(kf.value);
         var isD=this._dragKf&&this._dragKf[0]===ci&&this._dragKf[1]===ki;
         var isH=this._hovKf&&this._hovKf[0]===ci&&this._hovKf[1]===ki;
@@ -440,7 +433,7 @@ class CurveCanvas {
   // ── Hit test ──
   _hit(mx,my) {
     for(var ci=0;ci<this.curves.length;ci++){
-      if(!this.visibleSet.has(ci)||this.curves[ci]._derived) continue;
+      if(!this.visibleSet.has(ci)) continue;
       var kfs=this.curves[ci].keyframes;
       for(var ki=0;ki<kfs.length;ki++){
         var kf=kfs[ki]; if(kf.interpType!==0) continue;
@@ -451,7 +444,7 @@ class CurveCanvas {
       }
     }
     for(var ci=0;ci<this.curves.length;ci++){
-      if(!this.visibleSet.has(ci)||this.curves[ci]._derived) continue;
+      if(!this.visibleSet.has(ci)) continue;
       var kfs=this.curves[ci].keyframes;
       for(var ki=0;ki<kfs.length;ki++){
         var x=this._f2x(kfs[ki].frame),y=this._v2y(kfs[ki].value);
@@ -514,12 +507,10 @@ class CurveCanvas {
     if(hit&&hit.type==="handle"){
       this._saveUndo();
       this._dragH=[hit.ci,hit.ki,hit.dir];
-      if(this.onDragStart) this.onDragStart(hit.ci,hit.ki,"handle");
       this.canvas.style.cursor="crosshair";this.render();
     } else if(hit&&hit.type==="kf"){
       this._saveUndo();
       this._dragKf=[hit.ci,hit.ki];
-      if(this.onDragStart) this.onDragStart(hit.ci,hit.ki,"kf");
       this.canvas.style.cursor="grab";this.render();
     }
   }
@@ -537,16 +528,11 @@ class CurveCanvas {
     if(this._dragKf){
       var ci=this._dragKf[0],ki=this._dragKf[1];
       var kf=this.curves[ci].keyframes[ki];
-      var nv=this._y2v(my);
-      if(!this.curves[ci]._lockFrames){
-        var nf=Math.round(this._x2f(mx));
-        var kfs=this.curves[ci].keyframes;
-        var lo=ki>0?kfs[ki-1].frame+1:this.startFrame;
-        var hi=ki<kfs.length-1?kfs[ki+1].frame-1:this.endFrame;
-        kf.frame=Math.max(lo,Math.min(hi,nf));
-      }
-      kf.value=nv;
-      if(this.onDragUpdate) this.onDragUpdate(ci,ki,"kf");
+      var nf=Math.round(this._x2f(mx)),nv=this._y2v(my);
+      var kfs=this.curves[ci].keyframes;
+      var lo=ki>0?kfs[ki-1].frame+1:this.startFrame;
+      var hi=ki<kfs.length-1?kfs[ki+1].frame-1:this.endFrame;
+      kf.frame=Math.max(lo,Math.min(hi,nf)); kf.value=nv;
       this.render(); return;
     }
 
@@ -562,7 +548,6 @@ class CurveCanvas {
       if(this.handleMode==="symmetric"){
         if(dir===-1){kf.rightSlope=ns;kf.rightHandleWeight=nw;} else{kf.leftSlope=ns;kf.leftHandleWeight=nw;}
       }
-      if(this.onDragUpdate) this.onDragUpdate(ci,ki,"handle");
       this.render(); return;
     }
 
@@ -606,46 +591,3 @@ class CurveCanvas {
 function _niceStep(r){if(r<=0)return 1;var e=Math.floor(Math.log10(r)),b=Math.pow(10,e),n=r/b;return n<=1.5?b:n<=3.5?2*b:n<=7.5?5*b:10*b;}
 
 // ── Bezier FCurve evaluator ──
-function _cubicBez(p0,p1,p2,p3,t){
-  var u=1-t;return u*u*u*p0+3*u*u*t*p1+3*u*t*t*p2+t*t*t*p3;
-}
-function _cubicBezD(p0,p1,p2,p3,t){
-  var u=1-t;return 3*u*u*(p1-p0)+6*u*t*(p2-p1)+3*t*t*(p3-p2);
-}
-function evaluateFCurveAtFrame(fc,frame){
-  var kfs=fc.keyframes;
-  if(!kfs||!kfs.length) return fc.defaultValue||0;
-  if(frame<=kfs[0].frame) return kfs[0].value;
-  if(frame>=kfs[kfs.length-1].frame) return kfs[kfs.length-1].value;
-  var k0,k1;
-  for(var i=0;i<kfs.length-1;i++){
-    if(frame>=kfs[i].frame&&frame<=kfs[i+1].frame){k0=kfs[i];k1=kfs[i+1];break;}
-  }
-  if(!k0) return kfs[kfs.length-1].value;
-  var seg=k1.frame-k0.frame; if(seg<0.001) return k0.value;
-  // Hold
-  if(k0.interpType===2) return k0.value;
-  // Both linear
-  if(k0.interpType===1&&k1.interpType!==0){
-    var t=(frame-k0.frame)/seg; return k0.value+(k1.value-k0.value)*t;
-  }
-  // Bezier (at least one side smooth)
-  var dxr=Math.abs(k0.rightHandleWeight)>0.001?Math.abs(k0.rightHandleWeight):seg/3;
-  var dxl=Math.abs(k1.leftHandleWeight)>0.001?Math.abs(k1.leftHandleWeight):seg/3;
-  var p0x=k0.frame, p3x=k1.frame;
-  var p1x=k0.frame+dxr, p2x=k1.frame-dxl;
-  var p0y=k0.value, p3y=k1.value;
-  var p1y=k0.interpType===0?k0.value+k0.rightSlope*dxr:k0.value+(k1.value-k0.value)*dxr/seg;
-  var p2y=k1.interpType===0?k1.value-k1.leftSlope*dxl:k1.value-(k1.value-k0.value)*dxl/seg;
-  // Newton-Raphson to solve Bx(t)=frame
-  var t=(frame-k0.frame)/seg;
-  for(var it=0;it<8;it++){
-    var bx=_cubicBez(p0x,p1x,p2x,p3x,t)-frame;
-    var dbx=_cubicBezD(p0x,p1x,p2x,p3x,t);
-    if(Math.abs(dbx)<1e-10) break;
-    t=t-bx/dbx;
-    if(t<0)t=0;if(t>1)t=1;
-  }
-  return _cubicBez(p0y,p1y,p2y,p3y,t);
-}
-window.evaluateFCurveAtFrame=evaluateFCurveAtFrame;

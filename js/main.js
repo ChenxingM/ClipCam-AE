@@ -19,7 +19,6 @@
     "ImageRotation": "Rotation",
     "ImageScale": "Scale",
     "Opacity": "Opacity",
-    "_Speed": "Speed",
     "ImageAspectScale.X": "Scale X",
     "ImageAspectScale.Y": "Scale Y",
   };
@@ -32,7 +31,6 @@
     "ImageRotation":  "#4CC9F0",
     "ImageScale":     "#F76B8A",
     "Opacity":        "#B450E6",
-    "_Speed":         "#FFB347",
     "ImageAspectScale.X": "#F76B8A",
     "ImageAspectScale.Y": "#e6b432",
   };
@@ -48,125 +46,6 @@
     return true;
   }
 
-  // ── Speed curve ──
-
-  function _findFC(label) {
-    if (!camData) return null;
-    for (var i = 0; i < camData.fcurves.length; i++) {
-      if (camData.fcurves[i].label === label) return camData.fcurves[i];
-    }
-    return null;
-  }
-
-  function _speedAtFrame(posX, posY, f) {
-    var x0 = evaluateFCurveAtFrame(posX, f - 0.5), y0 = evaluateFCurveAtFrame(posY, f - 0.5);
-    var x1 = evaluateFCurveAtFrame(posX, f + 0.5), y1 = evaluateFCurveAtFrame(posY, f + 0.5);
-    return Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
-  }
-
-  function computeSpeedCurve(fcurves, sf, ef) {
-    var posX = null, posY = null;
-    for (var i = 0; i < fcurves.length; i++) {
-      if (fcurves[i].label === "ImagePosition.X") posX = fcurves[i];
-      if (fcurves[i].label === "ImagePosition.Y") posY = fcurves[i];
-    }
-    if (!posX || !posY || !posX.keyframes.length || !posY.keyframes.length) return null;
-    var kfs = [], speeds = [];
-    for (var ki = 0; ki < posX.keyframes.length; ki++) {
-      var pk = posX.keyframes[ki];
-      var spd = _speedAtFrame(posX, posY, pk.frame);
-      speeds.push(spd);
-      var pyKf = posY.keyframes[ki] || pk;
-      kfs.push({
-        frame: pk.frame, value: spd,
-        leftSlope: 0, rightSlope: 0,
-        leftHandleWeight: (Math.abs(pk.leftHandleWeight) + Math.abs(pyKf.leftHandleWeight)) / 2,
-        rightHandleWeight: (Math.abs(pk.rightHandleWeight) + Math.abs(pyKf.rightHandleWeight)) / 2,
-        interpType: pk.interpType,
-      });
-    }
-    for (var ki = 0; ki < kfs.length; ki++) {
-      if (ki < kfs.length - 1) kfs[ki].rightSlope = (speeds[ki + 1] - speeds[ki]) / (kfs[ki + 1].frame - kfs[ki].frame);
-      if (ki > 0) kfs[ki].leftSlope = (speeds[ki] - speeds[ki - 1]) / (kfs[ki].frame - kfs[ki - 1].frame);
-      if (ki === 0) kfs[ki].leftSlope = kfs[ki].rightSlope;
-      if (ki === kfs.length - 1) kfs[ki].rightSlope = kfs[ki].leftSlope;
-    }
-    return {
-      label: "_Speed", propertyName: "Speed", axis: "", defaultValue: 0,
-      keyframes: kfs, _speedCurve: true, _lockFrames: true,
-    };
-  }
-
-  function refreshSpeedCurve() {
-    if (!camData) return;
-    var posX = _findFC("ImagePosition.X"), posY = _findFC("ImagePosition.Y");
-    var sc = _findFC("_Speed");
-    if (!posX || !posY || !sc) return;
-    for (var ki = 0; ki < sc.keyframes.length && ki < posX.keyframes.length; ki++) {
-      sc.keyframes[ki].value = _speedAtFrame(posX, posY, sc.keyframes[ki].frame);
-    }
-  }
-
-  var _speedDragOrig = null;
-
-  function onSpeedDragStart(ki) {
-    var posX = _findFC("ImagePosition.X"), posY = _findFC("ImagePosition.Y");
-    var sc = _findFC("_Speed");
-    if (!posX || !posY || !sc) return;
-    _speedDragOrig = [];
-    for (var i = 0; i < posX.keyframes.length; i++) {
-      var px = posX.keyframes[i], py = posY.keyframes[i];
-      var f = px.frame;
-      var vx = evaluateFCurveAtFrame(posX, f + 0.5) - evaluateFCurveAtFrame(posX, f - 0.5);
-      var vy = evaluateFCurveAtFrame(posY, f + 0.5) - evaluateFCurveAtFrame(posY, f - 0.5);
-      _speedDragOrig.push({
-        pxL: px.leftSlope, pxR: px.rightSlope,
-        pyL: py.leftSlope, pyR: py.rightSlope,
-        pxLW: px.leftHandleWeight, pxRW: px.rightHandleWeight,
-        pyLW: py.leftHandleWeight, pyRW: py.rightHandleWeight,
-        vx: vx, vy: vy, speed: sc.keyframes[i].value,
-      });
-    }
-  }
-
-  function onSpeedDragMove(ki) {
-    if (!_speedDragOrig) return;
-    var posX = _findFC("ImagePosition.X"), posY = _findFC("ImagePosition.Y");
-    var sc = _findFC("_Speed");
-    if (!posX || !posY || !sc) return;
-    var orig = _speedDragOrig[ki];
-    if (!orig || orig.speed < 0.001) return;
-    var newSpeed = Math.max(0, sc.keyframes[ki].value);
-    var ratio = newSpeed / orig.speed;
-    var px = posX.keyframes[ki], py = posY.keyframes[ki];
-    var hasSlopes = Math.abs(orig.pxL) > 0.001 || Math.abs(orig.pxR) > 0.001 ||
-                    Math.abs(orig.pyL) > 0.001 || Math.abs(orig.pyR) > 0.001;
-    if (hasSlopes) {
-      px.leftSlope = orig.pxL * ratio; px.rightSlope = orig.pxR * ratio;
-      py.leftSlope = orig.pyL * ratio; py.rightSlope = orig.pyR * ratio;
-      px.leftHandleWeight = orig.pxLW * ratio; px.rightHandleWeight = orig.pxRW * ratio;
-      py.leftHandleWeight = orig.pyLW * ratio; py.rightHandleWeight = orig.pyRW * ratio;
-    } else {
-      px.leftSlope = orig.vx * ratio; px.rightSlope = orig.vx * ratio;
-      py.leftSlope = orig.vy * ratio; py.rightSlope = orig.vy * ratio;
-      if (px.interpType === 1) px.interpType = 0;
-      if (py.interpType === 1) py.interpType = 0;
-    }
-  }
-
-  function onSpeedDragEnd() { _speedDragOrig = null; }
-
-  function onSpeedHandleMove(ki) {
-    var posX = _findFC("ImagePosition.X"), posY = _findFC("ImagePosition.Y");
-    var sc = _findFC("_Speed");
-    if (!posX || !posY || !sc || ki >= sc.keyframes.length) return;
-    var sk = sc.keyframes[ki];
-    var px = posX.keyframes[ki], py = posY.keyframes[ki];
-    px.leftHandleWeight = sk.leftHandleWeight;
-    px.rightHandleWeight = sk.rightHandleWeight;
-    py.leftHandleWeight = sk.leftHandleWeight;
-    py.rightHandleWeight = sk.rightHandleWeight;
-  }
 
   // ══════════════════════════════════════════════════════
   // Init
@@ -184,21 +63,6 @@
 
       // Camera curve canvas
       curveCanvas = new CurveCanvas(document.getElementById("curve-canvas"));
-      curveCanvas.onDragStart = function(ci, ki, type) {
-        if (camData && camData.fcurves[ci] && camData.fcurves[ci]._speedCurve && type === "kf") onSpeedDragStart(ki);
-      };
-      curveCanvas.onDragUpdate = function(ci, ki, type) {
-        if (!camData || !camData.fcurves[ci] || !camData.fcurves[ci]._speedCurve) return;
-        if (type === "kf") onSpeedDragMove(ki);
-        else if (type === "handle") onSpeedHandleMove(ki);
-      };
-      curveCanvas.onCurveEdited = function(info) {
-        if (!camData) return;
-        if (info.type === "undo") { refreshSpeedCurve(); return; }
-        var fc = info.ci >= 0 ? camData.fcurves[info.ci] : null;
-        if (fc && fc._speedCurve) { onSpeedDragEnd(); }
-        refreshSpeedCurve();
-      };
 
       // Layer curve canvas
       layerCurveCanvas = new CurveCanvas(document.getElementById("layer-curve-canvas"));
@@ -400,11 +264,6 @@
       fn + "  |  " + fileData.frameRate + "fps  |  " + fileData.canvasWidth + "\u00d7" + fileData.canvasHeight +
       "  |  f" + fileData.startFrame + "\u2013" + fileData.endFrame;
 
-    // Speed curve
-    d.fcurves = d.fcurves.filter(function (fc) { return !fc._speedCurve; });
-    var sc = computeSpeedCurve(d.fcurves, fileData.startFrame, fileData.endFrame);
-    if (sc) d.fcurves.push(sc);
-
     var activeIndices = buildPropTags(d.fcurves, "cam-prop-bar", CAM_PROP_GROUPS);
     requestAnimationFrame(function () {
       curveCanvas._resize();
@@ -425,7 +284,6 @@
     ["ImagePosition.X", "ImagePosition.Y"],
     ["ImageRotation", "ImageScale"],
     ["Opacity"],
-    ["_Speed"],
   ];
 
   var LAYER_PROP_GROUPS = [
@@ -465,7 +323,7 @@
         var tag = document.createElement("button");
         tag.className = "prop-tag" + (defaultOn ? " active" : "") + (noKf ? " disabled" : "");
         tag.setAttribute("data-index", idx);
-        var statusTxt = fc._speedCurve ? "calc" : (noKf ? "const" : (staticProp ? kfCount + "kf\u2248" : kfCount + "kf"));
+        var statusTxt = noKf ? "const" : (staticProp ? kfCount + "kf\u2248" : kfCount + "kf");
         tag.innerHTML =
           '<span class="prop-dot" style="background:' + color + '"></span>' +
           '<span class="prop-label">' + name + '</span>' +
@@ -518,7 +376,7 @@
 
     var props = [];
     for (var i = 0; i < camData.fcurves.length; i++) {
-      if (!sel[String(i)] || camData.fcurves[i]._speedCurve) continue;
+      if (!sel[String(i)]) continue;
       var fc = camData.fcurves[i];
       var kfs = [];
       for (var k = 0; k < fc.keyframes.length; k++) {
