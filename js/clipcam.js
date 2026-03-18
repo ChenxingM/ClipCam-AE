@@ -1,7 +1,7 @@
 /**
- * .clipcam v3 binary parser (Node.js Buffer)
+ * .clipcam binary parser (Node.js Buffer)
  *
- * v3 format (little-endian):
+ * .clipcam file format (little-endian):
  *   Header: "CLIPCAM\0" (8B), version u16=3, fps f64,
  *           canvas_w u32, canvas_h u32, start u32, end u32
  *   Camera section: count u16, [count × Block]

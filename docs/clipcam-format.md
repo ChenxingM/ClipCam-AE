@@ -1,4 +1,4 @@
-# .clipcam v3 文件格式规范
+# .clipcam 文件格式规范
 
 `.clipcam` 是用于存储 Clip Studio Paint 摄像机 + 图层变形动画数据的二进制格式。所有多字节数值采用**小端序（Little-Endian）**。
 
