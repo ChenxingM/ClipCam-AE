@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="img/clipcam_ae_icon 1.svg" alt="ClipCam for AE" width="540">
+  <img src="img/clipcam_ae_logo.svg" alt="ClipCam for AE" width="540">
 </p>
 
 <p align="center">
