@@ -158,7 +158,12 @@ function applyPropertyWithMode(layer, pd, fps, mode, scX, scY, compCX, compCY, d
     applyEasing(prop, kfs, fps, isDim2);
 }
 
+function _clearKeys(prop) {
+    while (prop.numKeys > 0) prop.removeKey(1);
+}
+
 function setScaledKeyframes(prop, kfs, fps, scale, negate, isDim2, axisIdx) {
+    _clearKeys(prop);
     for (var k = 0; k < kfs.length; k++) {
         var time = (kfs[k].frame - 1) / fps;
         var val = kfs[k].value * scale;
@@ -179,6 +184,7 @@ function setScaledKeyframes(prop, kfs, fps, scale, negate, isDim2, axisIdx) {
 function setInvertedPosKeyframes(prop, kfs, fps, sc, compCenter, loCenter, isDim2, axisIdx) {
     // LO layer mode: lo_pos = compCenter + loCenter - csp_pos * scale
     // Camera right → LO left, camera down → LO up
+    _clearKeys(prop);
     for (var k = 0; k < kfs.length; k++) {
         var time = (kfs[k].frame - 1) / fps;
         var val = compCenter + loCenter - kfs[k].value * sc;
@@ -237,6 +243,7 @@ function applyEasingWithNegate(prop, kfs, fps, isDim2) {
 }
 
 function setScaleKeyframes(prop, kfs, fps, invert) {
+    _clearKeys(prop);
     for (var k = 0; k < kfs.length; k++) {
         var time = (kfs[k].frame - 1) / fps;
         var v = kfs[k].value;
@@ -247,6 +254,7 @@ function setScaleKeyframes(prop, kfs, fps, invert) {
 }
 
 function setRotationKeyframes(prop, kfs, fps, negate) {
+    _clearKeys(prop);
     for (var k = 0; k < kfs.length; k++) {
         var time = (kfs[k].frame - 1) / fps;
         var v = kfs[k].value;
@@ -370,6 +378,7 @@ function importLayerTransform(jsonStr) {
             if (pd.name === "ImageAspectScale") {
                 // Non-uniform scale → AE Scale [x, y]
                 var scaleProp = transform.property("Scale");
+                _clearKeys(scaleProp);
                 var axisIdx = pd.axis === "X" ? 0 : 1;
                 for (var k = 0; k < pd.keyframes.length; k++) {
                     var time = (pd.keyframes[k].frame - 1) / fps;
@@ -388,12 +397,14 @@ function importLayerTransform(jsonStr) {
                 try { posProp.dimensionsSeparated = true; } catch (e) {}
                 if (posProp.dimensionsSeparated) {
                     var sepProp = posProp.getSeparationFollower(pd.axis === "X" ? 0 : 1);
+                    _clearKeys(sepProp);
                     for (var k = 0; k < pd.keyframes.length; k++) {
                         var time = (pd.keyframes[k].frame - 1) / fps;
                         sepProp.setValueAtTime(time, pd.keyframes[k].value - cropOff);
                     }
                     applyEasing(sepProp, pd.keyframes, fps, false);
                 } else {
+                    _clearKeys(posProp);
                     var axisIdx = pd.axis === "X" ? 0 : 1;
                     for (var k = 0; k < pd.keyframes.length; k++) {
                         var time = (pd.keyframes[k].frame - 1) / fps;
@@ -407,6 +418,7 @@ function importLayerTransform(jsonStr) {
 
             } else if (pd.name === "ImageRotation") {
                 var rotProp = transform.property("Rotation");
+                _clearKeys(rotProp);
                 for (var k = 0; k < pd.keyframes.length; k++) {
                     var time = (pd.keyframes[k].frame - 1) / fps;
                     rotProp.setValueAtTime(time, pd.keyframes[k].value);
@@ -415,6 +427,7 @@ function importLayerTransform(jsonStr) {
 
             } else if (pd.name === "Opacity") {
                 var opProp = transform.property("Opacity");
+                _clearKeys(opProp);
                 for (var k = 0; k < pd.keyframes.length; k++) {
                     var time = (pd.keyframes[k].frame - 1) / fps;
                     opProp.setValueAtTime(time, pd.keyframes[k].value);
