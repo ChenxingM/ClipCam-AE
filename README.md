@@ -108,3 +108,4 @@ ClipCam-AE/
 
 - 面板代码开源，[Apache 2.0](LICENSE) 许可证
 - `bin/clipcam-extractor` 为预编译二进制，免费使用但暂不开源
+- 关于本项目用到的其他第三方资源的许可证，详见 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES)
