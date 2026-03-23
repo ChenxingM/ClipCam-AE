@@ -626,8 +626,14 @@
       }
       setLayerStatus("Applying " + (idx + 1) + "/" + matched.length + "...");
       var m = matched[idx];
+      // Collect active property tags for this layer's curves
+      var activeTags = document.querySelectorAll("#layer-prop-bar .prop-tag.active");
+      var activeSel = {};
+      for (var ai = 0; ai < activeTags.length; ai++) activeSel[activeTags[ai].getAttribute("data-index")] = true;
+
       var props = [];
       for (var fi = 0; fi < m.transform.fcurves.length; fi++) {
+        if (!activeSel[String(fi)]) continue;
         var fc = m.transform.fcurves[fi];
         if (!fc.keyframes || fc.keyframes.length === 0) continue;
         var kfs = [];
@@ -644,6 +650,8 @@
         frameRate: fileData.frameRate,
         canvasWidth: fileData.canvasWidth,
         canvasHeight: fileData.canvasHeight,
+        cropOffsetX: fileData.cropOffsetX || 0,
+        cropOffsetY: fileData.cropOffsetY || 0,
         properties: props,
       });
 

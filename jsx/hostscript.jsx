@@ -381,13 +381,16 @@ function importLayerTransform(jsonStr) {
                 applyEasing(scaleProp, pd.keyframes, fps, true);
 
             } else if (pd.name === "ImagePosition") {
+                // CSP position is in canvas coords; AE layer defaults to canvas center.
+                // Subtract CropFrame offset so that CropFrame center → canvas center.
+                var cropOff = pd.axis === "X" ? (data.cropOffsetX || 0) : (data.cropOffsetY || 0);
                 var posProp = transform.property("Position");
                 try { posProp.dimensionsSeparated = true; } catch (e) {}
                 if (posProp.dimensionsSeparated) {
                     var sepProp = posProp.getSeparationFollower(pd.axis === "X" ? 0 : 1);
                     for (var k = 0; k < pd.keyframes.length; k++) {
                         var time = (pd.keyframes[k].frame - 1) / fps;
-                        sepProp.setValueAtTime(time, pd.keyframes[k].value);
+                        sepProp.setValueAtTime(time, pd.keyframes[k].value - cropOff);
                     }
                     applyEasing(sepProp, pd.keyframes, fps, false);
                 } else {
@@ -396,7 +399,7 @@ function importLayerTransform(jsonStr) {
                         var time = (pd.keyframes[k].frame - 1) / fps;
                         var cur = posProp.valueAtTime(time, false);
                         var nv = [cur[0], cur[1]];
-                        nv[axisIdx] = pd.keyframes[k].value;
+                        nv[axisIdx] = pd.keyframes[k].value - cropOff;
                         posProp.setValueAtTime(time, nv);
                     }
                     applyEasing(posProp, pd.keyframes, fps, true);
