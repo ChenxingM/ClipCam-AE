@@ -1,3 +1,10 @@
+@font-face {
+  font-family: "Inter";
+  src: url("../fonts/Inter-VariableFont_opsz,wght.ttf") format("truetype");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
   --bg:       #282828;
   --panel:    #1E1E1E;
@@ -12,10 +19,11 @@
   --speed-med:  0.15s;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: inherit; }
 
 body {
-  font-family: "Segoe UI", "Meiryo UI", sans-serif;
+  font-family: "Inter", "Segoe UI", "Meiryo UI", sans-serif;
+  font-feature-settings: "calt" 1, "tnum" 1, "cv09" 1, "cv02" 1, "cv03" 1, "cv04" 1;
   font-size: 11px;
   color: var(--text);
   background: var(--bg);
@@ -346,7 +354,7 @@ body {
 
 .prop-kf {
   font-size: 9px;
-  font-family: "Consolas", monospace;
+  font-family: inherit;
   color: var(--dimmer);
   margin-left: 1px;
 }
@@ -454,7 +462,7 @@ body {
 .status-text {
   font-size: 10px;
   color: var(--dim);
-  font-family: "Consolas", monospace;
+  font-family: inherit;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
