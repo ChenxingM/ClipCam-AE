@@ -531,7 +531,10 @@
 
       var arrow = document.createElement("span");
       arrow.className = "layer-arrow";
-      arrow.textContent = "\u2192";
+      var arrowImg = document.createElement("img");
+      arrowImg.width = 10; arrowImg.height = 10;
+      arrowImg.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM1NTUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0ibHVjaWRlIGx1Y2lkZS1hcnJvdy1yaWdodC1pY29uIGx1Y2lkZS1hcnJvdy1yaWdodCI+PHBhdGggZD0iTTUgMTJoMTQiLz48cGF0aCBkPSJtMTIgNSA3IDctNyA3Ii8+PC9zdmc+";
+      arrow.appendChild(arrowImg);
 
       var select = document.createElement("select");
       select.className = "layer-assign";
