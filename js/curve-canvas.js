@@ -197,7 +197,7 @@ class CurveCanvas {
 
   _drawGrid(w,h) {
     var ctx=this.ctx;
-    ctx.font="9px Consolas,monospace";
+    ctx.font="9px Inter,sans-serif";
     var fpx=1/this.scaleX, vpx=1/this.scaleY;
 
     // Frame grid — always integer steps, labeled as frame numbers
@@ -282,14 +282,14 @@ class CurveCanvas {
         ctx.fillStyle=isD?COLOR_KF_DRAG:(isH?COLOR_KF_HOV:col);
         ctx.beginPath();
         if (kf.interpType === 1) {
-          // Linear: small square
-          ctx.rect(x-r*0.75, y-r*0.75, r*1.5, r*1.5);
-        } else if (kf.interpType === 2) {
-          // Hold: small triangle pointing right
-          ctx.moveTo(x-r,y-r); ctx.lineTo(x+r,y); ctx.lineTo(x-r,y+r);
-        } else {
-          // Smooth: diamond
+          // Linear: diamond
           ctx.moveTo(x,y-r);ctx.lineTo(x+r,y);ctx.lineTo(x,y+r);ctx.lineTo(x-r,y);
+        } else if (kf.interpType === 2) {
+          // Hold: square
+          ctx.rect(x-r*0.75, y-r*0.75, r*1.5, r*1.5);
+        } else {
+          // Smooth: circle
+          ctx.arc(x,y,r,0,Math.PI*2);
         }
         ctx.closePath(); ctx.fill();
         if(active){ctx.strokeStyle="rgba(0,0,0,0.3)";ctx.lineWidth=.5;ctx.stroke();}
@@ -305,61 +305,66 @@ class CurveCanvas {
   }
 
   // ── Toolbar (bottom-right corner) ──
+  _initToolbarIcons() {
+    if(this._tbIcons) return;
+    this._tbIcons={};
+    var svgs={
+      fit:"PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLW1vdmUtZGlhZ29uYWwyLWljb24gbHVjaWRlLW1vdmUtZGlhZ29uYWwtMiI+PHBhdGggZD0iTTE5IDEzdjZoLTYiLz48cGF0aCBkPSJNNSAxMVY1aDYiLz48cGF0aCBkPSJtNSA1IDE0IDE0Ii8+PC9zdmc+",
+      zin:"PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXpvb20taW4taWNvbiBsdWNpZGUtem9vbS1pbiI+PGNpcmNsZSBjeD0iMTEiIGN5PSIxMSIgcj0iOCIvPjxsaW5lIHgxPSIyMSIgeDI9IjE2LjY1IiB5MT0iMjEiIHkyPSIxNi42NSIvPjxsaW5lIHgxPSIxMSIgeDI9IjExIiB5MT0iOCIgeTI9IjE0Ii8+PGxpbmUgeDE9IjgiIHgyPSIxNCIgeTE9IjExIiB5Mj0iMTEiLz48L3N2Zz4=",
+      zout:"PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXpvb20tb3V0LWljb24gbHVjaWRlLXpvb20tb3V0Ij48Y2lyY2xlIGN4PSIxMSIgY3k9IjExIiByPSI4Ii8+PGxpbmUgeDE9IjIxIiB4Mj0iMTYuNjUiIHkxPSIyMSIgeTI9IjE2LjY1Ii8+PGxpbmUgeDE9IjgiIHgyPSIxNCIgeTE9IjExIiB5Mj0iMTEiLz48L3N2Zz4=",
+      hmode:"PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLXRhbmdlbnQtaWNvbiBsdWNpZGUtdGFuZ2VudCI+PGNpcmNsZSBjeD0iMTciIGN5PSI0IiByPSIyIi8+PHBhdGggZD0iTTE1LjU5IDUuNDEgNS40MSAxNS41OSIvPjxjaXJjbGUgY3g9IjQiIGN5PSIxNyIgcj0iMiIvPjxwYXRoIGQ9Ik0xMiAyMnMtNC05LTEuNS0xMS41UzIyIDEyIDIyIDEyIi8+PC9zdmc+"
+    };
+    var self=this;
+    function makeIcon(key,color){
+      var raw=atob(svgs[key]);
+      var colored=raw.replace(/stroke="currentColor"/g,'stroke="'+color+'"');
+      var img=new Image();
+      img.onload=function(){self.render();};
+      img.src="data:image/svg+xml;base64,"+btoa(colored);
+      return img;
+    }
+    for(var k in svgs){
+      this._tbIcons[k]={gray:makeIcon(k,"#aaa"),blue:makeIcon(k,"#2D8CEB")};
+    }
+  }
+
   _drawToolbar() {
+    this._initToolbarIcons();
     var ctx=this.ctx, w=this._w, h=this._h;
-    var bsz=24, gap=3, pad=10, cr=6;
+    var bsz=24, gap=3, pad=10, cr=6, isz=16;
     var btns = [
-      {id:"fit", icon:"⊞"},
-      {id:"zin", icon:"+"},
-      {id:"zout",icon:"−"},
-      {id:"hmode",icon:this.handleMode==="symmetric"?"⇔":"→"},
+      {id:"fit"},
+      {id:"zin"},
+      {id:"zout"},
+      {id:"hmode"},
     ];
 
-    // Draw as a single connected bar
     var totalW = btns.length*bsz + (btns.length-1)*gap + pad*2;
     var barH = bsz + pad;
     var barX = w - totalW - 6;
     var barY = h - barH - 6;
 
-    // Bar background
     ctx.save();
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = "#1a1a1a";
-    ctx.beginPath();
-    ctx.moveTo(barX+cr, barY);
-    ctx.arcTo(barX+totalW, barY, barX+totalW, barY+barH, cr);
-    ctx.arcTo(barX+totalW, barY+barH, barX, barY+barH, cr);
-    ctx.arcTo(barX, barY+barH, barX, barY, cr);
-    ctx.arcTo(barX, barY, barX+totalW, barY, cr);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.06)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.globalAlpha = 1;
 
     this._toolbarBtns = [];
     for (var i=0; i<btns.length; i++) {
       var bx = barX + pad + i*(bsz+gap);
       var by = barY + (barH-bsz)/2;
 
-      // Button bg on hover
       ctx.fillStyle = "rgba(255,255,255,0.05)";
       ctx.beginPath();
       ctx.moveTo(bx+4,by); ctx.arcTo(bx+bsz,by,bx+bsz,by+bsz,4);
       ctx.arcTo(bx+bsz,by+bsz,bx,by+bsz,4); ctx.arcTo(bx,by+bsz,bx,by,4);
       ctx.arcTo(bx,by,bx+bsz,by,4); ctx.closePath(); ctx.fill();
 
-      ctx.fillStyle = "#aaa";
-      ctx.font = "13px 'Segoe UI', sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(btns[i].icon, bx+bsz/2, by+bsz/2);
+      var id=btns[i].id;
+      var useBlue=(id==="hmode"&&this.handleMode==="symmetric");
+      var icon=this._tbIcons[id];
+      var img=useBlue?icon.blue:icon.gray;
+      if(img.complete) ctx.drawImage(img,bx+(bsz-isz)/2,by+(bsz-isz)/2,isz,isz);
 
-      this._toolbarBtns.push({x:bx, y:by, w:bsz, h:bsz, id:btns[i].id});
+      this._toolbarBtns.push({x:bx, y:by, w:bsz, h:bsz, id:id});
     }
-    ctx.textAlign = "start";
-    ctx.textBaseline = "alphabetic";
     ctx.restore();
   }
 
@@ -391,9 +396,9 @@ class CurveCanvas {
     menu.style.top = my + "px";
 
     var types = [
-      {label:"Smooth", type:0, icon:"◆"},
-      {label:"Linear", type:1, icon:"■"},
-      {label:"Hold",   type:2, icon:"▶"},
+      {label:"Smooth", type:0, icon:"●"},
+      {label:"Linear", type:1, icon:"◆"},
+      {label:"Hold",   type:2, icon:"■"},
     ];
 
     for (var t of types) {
