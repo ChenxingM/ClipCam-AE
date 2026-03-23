@@ -94,6 +94,18 @@
         });
       });
 
+      // Restore saved preferences
+      var savedMode = localStorage.getItem("clipcam.mode");
+      var savedTarget = localStorage.getItem("clipcam.target");
+      if (savedMode) document.getElementById("mode-select").value = savedMode;
+      if (savedTarget) document.getElementById("target-select").value = savedTarget;
+      document.getElementById("mode-select").addEventListener("change", function () {
+        localStorage.setItem("clipcam.mode", this.value);
+      });
+      document.getElementById("target-select").addEventListener("change", function () {
+        localStorage.setItem("clipcam.target", this.value);
+      });
+
       // Layer tab buttons
       document.getElementById("btn-layer-refresh").addEventListener("click", fetchAndBuildLayerList);
       document.getElementById("btn-layer-automatch").addEventListener("click", function() { autoMatchLayers(); renderLayerList(); });
