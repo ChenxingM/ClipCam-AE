@@ -128,6 +128,22 @@
   // Tab switching
   // ══════════════════════════════════════════════════════
 
+  var _indicatorInit = false;
+  function _moveIndicator() {
+    var activeTab = document.querySelector(".tab-bar .tab.active");
+    var indicator = document.getElementById("tab-indicator");
+    if (!activeTab || !indicator) return;
+    if (!_indicatorInit) {
+      // First call: set position instantly (no transition)
+      indicator.style.transition = "none";
+      _indicatorInit = true;
+    } else {
+      indicator.style.transition = "";
+    }
+    indicator.style.left = activeTab.offsetLeft + 8 + "px";
+    indicator.style.width = (activeTab.offsetWidth - 16) + "px";
+  }
+
   function switchTab(tabName) {
     if (currentTab === tabName) return;
     currentTab = tabName;
@@ -136,6 +152,7 @@
     for (var i = 0; i < tabs.length; i++) {
       tabs[i].classList.toggle("active", tabs[i].getAttribute("data-tab") === tabName);
     }
+    _moveIndicator();
 
     var panels = document.querySelectorAll(".tab-panel");
     for (var i = 0; i < panels.length; i++) {
@@ -259,6 +276,7 @@
 
     document.getElementById("empty-state").style.display = "none";
     document.getElementById("loaded-state").style.display = "flex";
+    _moveIndicator();
 
     document.getElementById("hdr-info").textContent =
       fn + "  |  " + fileData.frameRate + "fps  |  " + fileData.canvasWidth + "\u00d7" + fileData.canvasHeight +

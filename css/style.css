@@ -195,6 +195,7 @@ body {
   flex-shrink: 0;
   background: var(--bg);
   gap: 0;
+  position: relative;
 }
 
 .tab {
@@ -212,15 +213,16 @@ body {
 }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--text); }
-.tab.active::after {
-  content: "";
+
+.tab-indicator {
   position: absolute;
   bottom: 0;
   left: 8px;
-  right: 8px;
+  width: 0;
   height: 2px;
   background: var(--primary);
   border-radius: 1px;
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tab-badge {
