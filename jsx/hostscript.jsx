@@ -107,13 +107,14 @@ function applyPropertyWithMode(layer, pd, fps, mode, scX, scY, compCX, compCY, d
             // Cam frame: CSP Position → AE Position directly (LO comp coords)
             setScaledKeyframes(prop, kfs, fps, sc, false, isDim2, axisIdx);
         } else {
-            // LO layer: invert around CAM comp center
-            // lo_pos = comp_center - (csp_pos * scale - lo_center)
-            //        = comp_center + lo_center - csp_pos * scale
-            var loCenter = pd.axis === "X" ? (data.loWidth || data.canvasWidth) / 2
-                                           : (data.loHeight || data.canvasHeight) / 2;
+            // LO layer: invert around CropFrame center
+            // CropFrame center in canvas = canvasCenter + cropOffset
+            // ae_pos = compCenter - (csp_pos - cropFrameCenter) * scale
+            //        = compCenter + cropFrameCenter * scale - csp_pos * scale
+            var cropOffset = pd.axis === "X" ? (data.cropOffsetX || 0) : (data.cropOffsetY || 0);
+            var cropFrameCenter = (pd.axis === "X" ? data.canvasWidth : data.canvasHeight) / 2 + cropOffset;
             var compCenter = pd.axis === "X" ? compCX : compCY;
-            setInvertedPosKeyframes(prop, kfs, fps, sc, compCenter, loCenter, isDim2, axisIdx);
+            setInvertedPosKeyframes(prop, kfs, fps, sc, compCenter, cropFrameCenter * sc, isDim2, axisIdx);
         }
 
     } else if (pd.name === "ImageCenter") {
@@ -176,12 +177,13 @@ function setScaledKeyframes(prop, kfs, fps, scale, negate, isDim2, axisIdx) {
     applyEasing(prop, kfs, fps, isDim2);
 }
 
-function setInvertedPosKeyframes(prop, kfs, fps, sc, compCenter, loCenter, isDim2, axisIdx) {
-    // LO layer mode: lo_pos = compCenter + loCenter - csp_pos * scale
-    // Camera right → LO left, camera down → LO up
+function setInvertedPosKeyframes(prop, kfs, fps, sc, compCenter, refCenter, isDim2, axisIdx) {
+    // LO layer mode: lo_pos = compCenter + refCenter - csp_pos * scale
+    // refCenter = cropFrameCenter * scale (frame center in LO space)
+    // When camera at CropFrame center → layer at comp center
     for (var k = 0; k < kfs.length; k++) {
         var time = (kfs[k].frame - 1) / fps;
-        var val = compCenter + loCenter - kfs[k].value * sc;
+        var val = compCenter + refCenter - kfs[k].value * sc;
 
         if (isDim2) {
             var cur = prop.valueAtTime(time, false);

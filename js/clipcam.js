@@ -92,6 +92,10 @@ function parseClipCamBuffer(buf) {
   var canvasHeight = buf.readUInt32LE(pos); pos += 4;
   var startFrame = buf.readUInt32LE(pos); pos += 4;
   var endFrame = buf.readUInt32LE(pos); pos += 4;
+  var cropFrameWidth = buf.readDoubleLE(pos); pos += 8;
+  var cropFrameHeight = buf.readDoubleLE(pos); pos += 8;
+  var cropOffsetX = buf.readDoubleLE(pos); pos += 8;
+  var cropOffsetY = buf.readDoubleLE(pos); pos += 8;
 
   // Camera section
   var camCount = buf.readUInt16LE(pos); pos += 2;
@@ -123,6 +127,8 @@ function parseClipCamBuffer(buf) {
     version: 3,
     frameRate: frameRate, canvasWidth: canvasWidth, canvasHeight: canvasHeight,
     startFrame: startFrame, endFrame: endFrame,
+    cropFrameWidth: cropFrameWidth, cropFrameHeight: cropFrameHeight,
+    cropOffsetX: cropOffsetX, cropOffsetY: cropOffsetY,
     cameras: cameras,
     transforms: transforms,
   };

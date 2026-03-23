@@ -408,6 +408,7 @@
     var payload = JSON.stringify({
       frameRate: fileData.frameRate, canvasWidth: fileData.canvasWidth, canvasHeight: fileData.canvasHeight,
       startFrame: fileData.startFrame, endFrame: fileData.endFrame,
+      cropOffsetX: fileData.cropOffsetX || 0, cropOffsetY: fileData.cropOffsetY || 0,
       target: target, mode: mode, loWidth: loW, loHeight: loH, properties: props
     });
 
