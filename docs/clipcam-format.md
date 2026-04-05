@@ -4,19 +4,25 @@
 
 ---
 
-## 文件头（34 字节）
+## 文件头（66 字节）
 
 ```
-┌──────────────┬──────┬─────────────────────┐
-│ Magic        │ 8B   │ "CLIPCAM\0"         │
-│ Version      │ u16  │ 3                   │
-│ FrameRate    │ f64  │ 帧率（如 24.0）      │
-│ CanvasWidth  │ u32  │ 画布宽度（像素）      │
-│ CanvasHeight │ u32  │ 画布高度（像素）      │
-│ StartFrame   │ u32  │ 起始帧（1-based）    │
-│ EndFrame     │ u32  │ 结束帧              │
-└──────────────┴──────┴─────────────────────┘
+┌────────────────┬──────┬─────────────────────┐
+│ Magic          │ 8B   │ "CLIPCAM\0"         │
+│ Version        │ u16  │ 3                   │
+│ FrameRate      │ f64  │ 帧率（如 24.0）      │
+│ CanvasWidth    │ u32  │ 画布宽度（像素）      │
+│ CanvasHeight   │ u32  │ 画布高度（像素）      │
+│ StartFrame     │ u32  │ 起始帧（1-based）    │
+│ EndFrame       │ u32  │ 结束帧              │
+│ CropFrameW     │ f64  │ CropFrame 宽度      │
+│ CropFrameH     │ f64  │ CropFrame 高度      │
+│ CropOffsetX    │ f64  │ CropFrame X 偏移    │
+│ CropOffsetY    │ f64  │ CropFrame Y 偏移    │
+└────────────────┴──────┴─────────────────────┘
 ```
+
+CropFrame 用于 CSP 的摄像框（摄影框）裁切区域。当画布与实际输出尺寸不同时，CropFrame 记录输出区域的大小和相对画布中心的偏移。无摄像框时四个值均为 0。
 
 ## Camera Section（摄像机段）
 
