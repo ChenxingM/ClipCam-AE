@@ -1,0 +1,178 @@
+<p align="center">
+  <img src="img/clipcam_ae_logo.svg" alt="ClipCam for AE" width="540">
+</p>
+
+<p align="center">
+  <strong>Clip Studio Paint のカメラを After Effects へ持ち込む CEP パネル</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License">
+  <img src="https://img.shields.io/badge/platform-Windows-0078D4?logo=windows" alt="Platform">
+  <img src="https://img.shields.io/badge/After%20Effects-2020%2B-9999FF?logo=adobeaftereffects&logoColor=white" alt="AE">
+  <img src="https://img.shields.io/badge/Clip%20Studio%20Paint-.clip-FF6B9D" alt="CSP">
+  <img src="https://img.shields.io/badge/CEP-panel-4A154B" alt="CEP">
+</p>
+
+---
+
+> 🇨🇳 [中文](README.md) · 🇺🇸 [English](README.en.md)
+
+## 機能
+
+- `.clip` ファイル、または中間形式の `.clipcam` を直接読み込み
+- 複数カメラ対応（自動検出してドロップダウン表示）
+- レイヤートランスフォームのインポート（CSP レイヤー名と AE レイヤー名を自動マッチ）
+- ベジェハンドル操作に対応したインタラクティブなカーブエディター
+- 2 つのインポートモード：**Camera Frame** / **LO Comp Layer**
+- キーフレーム補間タイプを保持（Smooth / Linear / Hold）
+
+## インストール
+
+### 方法 A：`.zxp` インストーラー（一般ユーザー推奨）
+
+1. [Releases](https://github.com/ChenxingM/ClipCam-AE/releases) から最新の `ClipCam-AE-v*.zxp` をダウンロード
+2. [aescripts ZXP Installer](https://aescripts.com/learn/zxp-installer/) をインストール
+3. ZXP Installer を開いて `.zxp` をウィンドウにドラッグ → 完了を待つ
+4. After Effects を再起動 → **ウィンドウ** → **拡張機能** → **ClipCamAE**
+
+### 方法 B：ポータブル版（開発者・改造したい方向け）
+
+1. [Releases](https://github.com/ChenxingM/ClipCam-AE/releases) から `ClipCam-AE-v*.zip` をダウンロードし、以下の場所に展開：
+   ```
+   C:\Users\<ユーザー名>\AppData\Roaming\Adobe\CEP\extensions\ClipCam-AE
+   ```
+2. 未署名拡張機能の有効化（開発者モード）——レジストリ `HKCU\SOFTWARE\Adobe\CSXS.11` に文字列値 `PlayerDebugMode = 1` を追加
+   （リポジトリ内の `deploy.ps1` を実行すれば自動で設定されます）
+3. After Effects を再起動 → **ウィンドウ** → **拡張機能** → **ClipCamAE**
+
+## 使い方
+
+### Camera タブ
+
+1. `.clip` または `.clipcam` ファイルをパネルにドラッグ（または **Open** ボタン）
+2. `.clip` ファイルは内蔵ツールで自動的にカメラデータが抽出されます
+3. 複数カメラを含むファイルは上部にドロップダウンが表示されます
+4. カーブエディターでキーフレームをプレビュー・調整
+5. インポートモードとターゲットレイヤーを選択して **Apply** をクリック
+
+### Layer タブ
+
+1. レイヤートランスフォームデータを含むファイルを読み込む
+2. **Refresh** をクリックして現在の AE コンポジションのレイヤー一覧を取得
+3. パネルが CSP → AE のレイヤー名を自動マッチングします
+4. 必要に応じてマッチング関係を手動で調整（ドロップダウン）
+5. **Apply Transforms** をクリックして一括でキーフレームを書き込み
+
+### インポートモード
+
+| モード | 説明 |
+|------|------|
+| **Camera Frame** | LO コンポジション内にカメラフレームレイヤーを作成。Position / Scale / Rotation は CSP データにそのまま対応 |
+| **LO Comp Layer** | CAM コンポジション内の LO レイヤーを制御。座標と回転は反転（カメラが右に動く → レイヤーが左に動く） |
+
+### LO Size
+
+座標変換に使います。**CSP** をクリックすると `.clip` ファイルのキャンバスサイズが、**Comp** をクリックすると現在のコンポジションのサイズが自動入力されます。
+
+## カーブエディター
+
+| 操作 | 機能 |
+|------|------|
+| キーフレームをドラッグ | フレーム位置と値を移動 |
+| ハンドルをドラッグ | 傾きとウェイトを調整（ベジェ制御点） |
+| キーフレームを右クリック | 補間タイプを切り替え（Smooth / Linear / Hold） |
+| ホイール | ズーム |
+| Alt+ドラッグ / 中クリックドラッグ | ビューのパン |
+| ダブルクリック | ビューを自動フィット |
+| Ctrl+Z | 元に戻す |
+
+## プロジェクト構成
+
+```
+ClipCam-AE/
+├── bin/
+│   ├── extractor.lock.json      # extractor のバージョン + SHA256 + ダウンロード URL
+│   ├── fetch-extractor.ps1      # lock ファイルに従って extractor を取得＋検証
+│   └── clipcam-extractor.exe    # オンデマンドで取得（リポジトリには含まれません）
+├── css/
+│   └── style.css
+├── js/
+│   ├── CSInterface.js           # Adobe CEP SDK
+│   ├── clipcam.js               # .clipcam v3 パーサー
+│   ├── curve-canvas.js          # カーブエディター
+│   └── main.js                  # メイン UI ロジック
+├── jsx/
+│   └── hostscript.jsx           # AE ExtendScript
+├── CSXS/
+│   └── manifest.xml             # CEP 拡張機能マニフェスト
+├── docs/
+│   └── clipcam-format.md        # .clipcam バイナリフォーマット仕様
+└── index.html
+```
+
+## 動作環境
+
+- After Effects 2020 (17.0) 以降
+- Windows（macOS は現時点で未対応）
+
+## `clipcam-extractor.exe` について
+
+本プロジェクトは `.clip` ファイルからカメラ＋レイヤートランスフォームデータを抽出し `.clipcam` 形式に変換するためのコンパイル済みバイナリ `clipcam-extractor.exe` に依存しています。
+
+**このバイナリは Git リポジトリに含まれていません。** 別途クローズドソースな Rust プロジェクトでビルドされ、GitHub Releases に独立したアセットとして公開されます。リポジトリには、バージョン固定ファイル `bin/extractor.lock.json` と取得スクリプト `bin/fetch-extractor.ps1` のみが置かれています。
+
+**開発者向けワークフロー**：
+
+```powershell
+# 初回クローン後は deploy.ps1 を実行（自動取得されます）、または手動で：
+powershell -ExecutionPolicy Bypass -File bin/fetch-extractor.ps1
+```
+
+スクリプトは `bin/extractor.lock.json` を読み、バイナリをダウンロードし、SHA-256 を検証します。失敗時はテンポラリファイルをクリーンアップします。
+
+**現在固定されているバージョン**（`bin/extractor.lock.json` より）：
+
+| 項目 | 値 |
+|---|---|
+| バージョン | v1.0.0 |
+| プラットフォーム | Windows x86-64 (PE32+) |
+| サイズ | 1,331,200 bytes |
+| SHA-256 | `209EE43D5941B1C1A391B065D09DE83C52A044CFCE8D4B31DF1E4638916CB469` |
+
+**使用条件**：
+
+- 個人・商用問わず無料で利用可
+- 本パネルの依存バイナリとしての再配布のみ可
+- リバースエンジニアリング・逆アセンブル・逆コンパイルは禁止
+- 無保証（AS-IS）
+
+問題や他プラットフォーム対応のリクエストは [Issues](https://github.com/ChenxingM/ClipCam-AE/issues) からお願いします。
+
+## 利用とクレジット
+
+本プロジェクトは永久に無料・オープンソースで、今後いかなる形でも有料化することはありません。
+
+> 🇨🇳 [中文](README.md) · 🇺🇸 [English](README.en.md)
+
+本ツールは Apache License 2.0 で公開しています。映像制作（アニメ・ドラマ・MV・CM・ゲーム CG 等の商業作品）を含むすべての用途において、**特に制限はありません**。
+
+作品のクレジットに名前を入れてもらえると非常に嬉しいです：
+
+```
+技術開発協力 / Technical Support
+千石まよひ / Sengoku Mayoi
+```
+
+「技術開発協力」の肩書は、プロジェクトに合うものであれば自由に変更していただいて構いません。
+
+これは**お願いであって義務ではありません**——Apache 2.0 によりすでにすべての権利が付与されているので、クレジットなしでもまったく問題ありません。入れるのが難しい場合は、**GitHub のスター**や **Issues** でひとこと教えてもらえるだけでも十分ありがたいです。
+
+詳細は [NOTICE](NOTICE) ファイルをご覧ください。
+
+## ライセンス
+
+- **パネルコード**（`js/`、`jsx/`、`css/`、`index.html`、`CSXS/`）：[Apache License 2.0](LICENSE)
+- **`clipcam-extractor.exe`**：プロプライエタリ・フリーウェア（上記の節参照）
+- **サードパーティアセット**（Adobe CEP SDK、Lucide アイコン、Inter フォント）：[THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) を参照
+- **クレジット**（商業作品向け、任意）：[NOTICE](NOTICE) を参照

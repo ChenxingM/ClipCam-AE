@@ -1,3 +1,14 @@
+This project includes CSInterface.js from the Adobe CEP SDK
+(https://github.com/Adobe-CEP/CEP-Resources), version 11.0.0.
+Copyright 2020 Adobe Systems Incorporated. All Rights Reserved.
+
+The file is redistributed here per Adobe's CEP SDK license terms,
+which permit use, modification, and redistribution as part of a
+CEP extension. See the file header in js/CSInterface.js for the
+full notice.
+
+---
+
 This project includes icons from Lucide (https://lucide.dev)
 Licensed under the ISC License.
 

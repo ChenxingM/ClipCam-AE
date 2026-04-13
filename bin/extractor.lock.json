@@ -1,0 +1,14 @@
+{
+  "$comment": "Pinned release of the closed-source clipcam-extractor binary. Managed by bin/fetch-extractor.ps1. Update version + sha256 + url when cutting a new extractor release.",
+  "name": "clipcam-extractor",
+  "version": "1.0.0",
+  "platform": "win-x64",
+  "filename": "clipcam-extractor.exe",
+  "size": 1331200,
+  "sha256": "209EE43D5941B1C1A391B065D09DE83C52A044CFCE8D4B31DF1E4638916CB469",
+  "url": "https://github.com/ChenxingM/ClipCam-AE/releases/download/extractor-v1.0.0/clipcam-extractor-v1.0.0-win-x64.exe",
+  "license": {
+    "type": "proprietary-freeware",
+    "terms": "Free for personal and commercial use. Redistributable only as part of the ClipCam-AE panel. Reverse engineering, decompilation, and disassembly are prohibited. AS-IS, no warranty."
+  }
+}

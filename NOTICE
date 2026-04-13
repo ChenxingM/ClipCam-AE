@@ -1,0 +1,48 @@
+ClipCam-AE — Clip Studio Paint camera bridge for After Effects
+Copyright (c) 2026 Sengoku Mayoi / 千石まよひ
+https://github.com/ChenxingM/ClipCam-AE
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+This project is permanently free and open-source. It will never
+be monetized in any form.
+
+================================================================
+
+Attribution (kindly requested, not legally required)
+
+There are no additional restrictions on any usage of ClipCam-AE,
+including video production (animation, TV episodes, music videos,
+commercials, game cinematics, or any other commercial work).
+
+If you use ClipCam-AE in a production, the author would be very
+happy to be credited in the end titles / staff roll:
+
+    Technical Support
+    Sengoku Mayoi (千石まよひ)
+
+The title "Technical Support" is flexible — feel free to replace
+it with whatever fits your project style.
+
+This request is not enforceable under Apache License 2.0. Apache
+2.0 already grants you full rights, and omitting the credit is
+completely fine. If crediting isn't feasible for your project, a
+star on GitHub or a short note in Issues is equally appreciated.
+
+================================================================
+
+This product bundles the following components — see THIRD_PARTY_NOTICES
+for the full text of each license:
+
+  - CSInterface.js (Adobe CEP SDK) — Adobe CEP SDK License
+  - Lucide / Feather icons             — ISC / MIT
+  - Inter variable font                — SIL Open Font License 1.1
+
+And depends on (fetched at install time, not in this repository):
+
+  - clipcam-extractor.exe              — Proprietary freeware,
+                                         see README for terms

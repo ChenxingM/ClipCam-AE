@@ -8,6 +8,17 @@ $srcDir = $PSScriptRoot
 $cepDir = "$env:APPDATA\Adobe\CEP\extensions"
 $targetDir = "$cepDir\$extensionId"
 
+# Ensure the extractor binary is present (downloads from Releases on first run)
+$extractor = Join-Path $srcDir "bin\clipcam-extractor.exe"
+if (-not (Test-Path $extractor)) {
+    Write-Host "Extractor binary missing — fetching..." -ForegroundColor Cyan
+    & powershell -ExecutionPolicy Bypass -File (Join-Path $srcDir "bin\fetch-extractor.ps1")
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Failed to fetch extractor binary. Aborting deploy." -ForegroundColor Red
+        exit 1
+    }
+}
+
 # Ensure CEP extensions directory exists
 if (-not (Test-Path $cepDir)) {
     New-Item -ItemType Directory -Path $cepDir -Force | Out-Null

@@ -34,7 +34,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Empty State ── */
+/* Empty state */
 
 .empty-state {
   display: flex;
@@ -96,7 +96,7 @@ body {
   letter-spacing: 0.3px;
 }
 
-/* ── Drag overlay ── */
+/* Drag overlay */
 
 .drag-overlay {
   position: fixed;
@@ -126,7 +126,7 @@ body {
   font-weight: 500;
 }
 
-/* ── Loaded State ── */
+/* Loaded state */
 
 .loaded-state {
   display: flex;
@@ -186,7 +186,7 @@ body {
 .hdr-btn:hover { border-color: var(--dim); color: var(--text); }
 .hdr-btn:active { transform: scale(0.96); }
 
-/* ── Tab bar ── */
+/* Tab bar */
 
 .tab-bar {
   display: flex;
@@ -239,7 +239,7 @@ body {
   vertical-align: 1px;
 }
 
-/* ── Tab panels ── */
+/* Tab panels */
 
 .tab-panel {
   display: none;
@@ -251,7 +251,7 @@ body {
   display: flex;
 }
 
-/* ── Curve editor ── */
+/* Curve editor */
 
 .curve-wrap {
   flex: 1;
@@ -299,7 +299,7 @@ body {
 .ctx-item.active { color: var(--primary); }
 .ctx-icon { font-size: 9px; width: 12px; text-align: center; }
 
-/* ── Property tags ── */
+/* Property tags */
 
 .prop-bar {
   display: flex;
@@ -362,7 +362,7 @@ body {
 }
 .prop-tag.active .prop-kf { color: var(--dim); }
 
-/* ── Footer controls (Camera tab) ── */
+/* Footer controls (Camera tab) */
 
 .footer {
   padding: 8px 10px;
@@ -498,7 +498,7 @@ body {
   transform: none;
 }
 
-/* ── Layer tab ── */
+/* Layer tab */
 
 .layer-empty {
   display: flex;

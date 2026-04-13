@@ -4,3 +4,14 @@ Thumbs.db
 Desktop.ini
 
 .idea/
+.claude/
+
+# Extractor binary — fetched via bin/fetch-extractor.ps1 from GitHub Releases
+bin/clipcam-extractor.exe
+bin/*.downloading
+
+# Release build output
+dist/
+
+# Local signing cert (self-signed; must be backed up outside the repo)
+*.p12

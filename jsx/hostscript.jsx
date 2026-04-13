@@ -26,7 +26,7 @@ if (typeof JSON === "undefined") {
     };
 }
 
-// ── Main entry point ──
+// Main entry point
 //
 // Mode "cam_frame": Cam Frame layer inside LO comp (Method 2)
 //   position    = CSP ImagePosition (scaled to LO comp)
@@ -307,7 +307,7 @@ function clamp(v, lo, hi) {
     return v < lo ? lo : (v > hi ? hi : v);
 }
 
-// ── Utility: get comp info ──
+// Utility: get comp info
 
 function getCompInfo() {
     var comp = app.project.activeItem;
@@ -324,7 +324,7 @@ function getCompInfo() {
     });
 }
 
-// ── Extend comp duration ──
+// Extend comp duration
 
 function extendCompDuration(newDuration) {
     var comp = app.project.activeItem;
@@ -337,7 +337,7 @@ function extendCompDuration(newDuration) {
     return JSON.stringify({ success: true, duration: newDuration });
 }
 
-// ── Get comp layers ──
+// Get comp layers
 
 function getCompLayers() {
     var comp = app.project.activeItem;
@@ -351,7 +351,7 @@ function getCompLayers() {
     return JSON.stringify({ layers: layers });
 }
 
-// ── Import layer transform ──
+// Import layer transform
 
 function importLayerTransform(jsonStr) {
     try {
@@ -446,7 +446,7 @@ function importLayerTransform(jsonStr) {
     }
 }
 
-// ── File dialog (fallback for CEP file input) ──
+// File dialog (fallback for CEP file input)
 
 function openFileDialog() {
     var f = File.openDialog("Select file", "CLIP Studio:*.clip,ClipCam:*.clipcam,All Files:*.*");

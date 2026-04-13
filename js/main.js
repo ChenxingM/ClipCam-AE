@@ -9,7 +9,7 @@
   var layerCurveCanvas = null;
   var currentTab = "camera";
 
-  // ── AE property names + colors ──
+  // AE property names + colors
 
   window.AE_NAMES = {
     "ImageCenter.X": "Anchor X",
@@ -47,9 +47,7 @@
   }
 
 
-  // ══════════════════════════════════════════════════════
   // Init
-  // ══════════════════════════════════════════════════════
 
   function init() {
     try {
@@ -136,9 +134,7 @@
     }
   }
 
-  // ══════════════════════════════════════════════════════
   // Tab switching
-  // ══════════════════════════════════════════════════════
 
   var _indicatorInit = false;
   function _moveIndicator() {
@@ -188,9 +184,7 @@
     }
   }
 
-  // ══════════════════════════════════════════════════════
   // File ops
-  // ══════════════════════════════════════════════════════
 
   function openFile() {
     csInterface.evalScript("openFileDialog()", function (result) {
@@ -258,9 +252,7 @@
     updateLayerTab();
   }
 
-  // ══════════════════════════════════════════════════════
   // Camera tab
-  // ══════════════════════════════════════════════════════
 
   function selectCamera(idx, filePath) {
     if (!fileData || idx >= fileData.cameras.length) return;
@@ -307,7 +299,7 @@
     setStatus("Loaded " + fn);
   }
 
-  // ── Property tags ──
+  // Property tags
 
   var CAM_PROP_GROUPS = [
     ["ImageCenter.X", "ImageCenter.Y"],
@@ -374,7 +366,7 @@
     return activeIndices;
   }
 
-  // ── Camera import ──
+  // Camera import
 
   function importCameraToAE() {
     if (!camData) return;
@@ -433,9 +425,7 @@
     });
   }
 
-  // ══════════════════════════════════════════════════════
   // Layer tab
-  // ══════════════════════════════════════════════════════
 
   var _aeLayers = [];       // [{index, name}, ...]
   var _layerMatches = {};   // aeIdx → transformIdx
@@ -478,7 +468,7 @@
     });
   }
 
-  // ── Auto-match: startsWith, longest match wins ──
+  // Auto-match: startsWith, longest match wins
 
   function autoMatchLayers() {
     if (!fileData || !fileData.transforms.length) return;
@@ -619,7 +609,7 @@
     }
   }
 
-  // ── Apply transforms ──
+  // Apply transforms
 
   function applyTransformsToAE() {
     var matched = [];
@@ -682,7 +672,7 @@
     next();
   }
 
-  // ── Status helpers ──
+  // Status helpers
 
   function setStatus(msg, type) {
     var el = document.getElementById("status-bar");
@@ -696,7 +686,7 @@
     el.className = "status-text" + (type ? " " + type : "");
   }
 
-  // ── Start ──
+  // Start
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();

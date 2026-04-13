@@ -52,7 +52,7 @@ class CurveCanvas {
   setVisible(i,v) { if(v) this.visibleSet.add(i); else this.visibleSet.delete(i); this.render(); }
   clear() { this.curves=[]; this.visibleSet.clear(); this.render(); }
 
-  // ── Undo ──
+  // Undo
   _saveUndo() {
     // Deep snapshot of all keyframe values
     var snap = [];
@@ -86,7 +86,7 @@ class CurveCanvas {
     this.render();
   }
 
-  // ── Transforms ──
+  // Transforms
   _f2x(f){return(f-this.viewX)*this.scaleX;}
   _v2y(v){return(this.viewY-v)*this.scaleY;}
   _x2f(x){return x/this.scaleX+this.viewX;}
@@ -175,7 +175,7 @@ class CurveCanvas {
 
   _color(ci){return PROP_COLORS[this.curves[ci].label]||CURVE_COLORS[ci%CURVE_COLORS.length];}
 
-  // ── Render ──
+  // Render
   render() {
     // Always check if parent size changed
     var par = this.canvas.parentElement;
@@ -304,7 +304,7 @@ class CurveCanvas {
            (this._hovH&&this._hovH[0]===ci&&this._hovH[1]===ki&&this._hovH[2]===dir);
   }
 
-  // ── Toolbar (bottom-right corner) ──
+  // Toolbar (bottom-right corner)
   _initToolbarIcons() {
     if(this._tbIcons) return;
     this._tbIcons={};
@@ -386,7 +386,7 @@ class CurveCanvas {
     }
   }
 
-  // ── Context menu (right-click on keyframe) ──
+  // Context menu (right-click on keyframe)
   _showCtxMenu(ci, ki, mx, my) {
     this._hideCtxMenu();
     var kf = this.curves[ci].keyframes[ki];
@@ -435,7 +435,7 @@ class CurveCanvas {
     if(this._ctxClose){document.removeEventListener("mousedown",this._ctxClose);this._ctxClose=null;}
   }
 
-  // ── Hit test ──
+  // Hit test
   _hit(mx,my) {
     for(var ci=0;ci<this.curves.length;ci++){
       if(!this.visibleSet.has(ci)) continue;
@@ -459,7 +459,7 @@ class CurveCanvas {
     return null;
   }
 
-  // ── Events ──
+  // Events
   _bind() {
     var c=this.canvas;
     c.addEventListener("wheel",(e)=>this._onWheel(e),{passive:false});
@@ -595,4 +595,4 @@ class CurveCanvas {
 
 function _niceStep(r){if(r<=0)return 1;var e=Math.floor(Math.log10(r)),b=Math.pow(10,e),n=r/b;return n<=1.5?b:n<=3.5?2*b:n<=7.5?5*b:10*b;}
 
-// ── Bezier FCurve evaluator ──
+// Bezier FCurve evaluator
