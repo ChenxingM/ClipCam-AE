@@ -16,7 +16,11 @@
 
 ---
 
-> 🇨🇳 中文版：[README.md](README.md)
+> 🇨🇳 [中文](README.md) · 🇯🇵 [日本語](README.ja.md)
+
+> 🧪 **Public Beta — v1.0.0-beta**
+>
+> This is the first public beta of ClipCam-AE. Core features are implemented and validated internally, but haven't been battle-tested across a wide range of real projects yet. This release is published specifically to gather early feedback and real-world bug reports. Please try it and report anything you hit at [Issues](https://github.com/ChenxingM/ClipCam-AE/issues) — a stable 1.0.0 will follow once enough feedback is collected.
 
 ## Features
 
@@ -31,7 +35,7 @@
 >
 > Clip Studio Paint currently offers **no way to export raw camera or layer transform data** — it can only output finished video, image sequences, or timeline data. To carry CSP's internal keyframes and curves over to After Effects intact, this project defines the `.clipcam` binary intermediate format.
 >
-> - **`.clipcam` format spec** is fully open: [docs/clipcam-format.md](docs/clipcam-format.md)
+> - **`.clipcam` format spec** is fully open: [docs/clipcam-format.en.md](docs/clipcam-format.en.md)
 > - **`.clipcam` parser** (`js/clipcam.js`) ships with the panel under Apache 2.0
 > - **`.clip → .clipcam` generator** — currently only the closed-source `bin/clipcam-extractor.exe` (maintained by me, free to use, reverse engineering prohibited)
 >
@@ -62,6 +66,16 @@ A full walkthrough video is in production and will be linked here once it's publ
    (or run the bundled `deploy.ps1` which does this automatically)
 3. Restart After Effects → **Window** → **Extensions** → **ClipCamAE**
 
+### Running from source
+
+```powershell
+git clone https://github.com/ChenxingM/ClipCam-AE.git
+cd ClipCam-AE
+powershell -ExecutionPolicy Bypass -File deploy.ps1
+```
+
+`deploy.ps1` auto-fetches `clipcam-extractor.exe` from GitHub Releases (see the `bin/` section below) and creates a junction into the CEP extensions directory.
+
 ## Usage
 
 ### Camera Tab
@@ -79,6 +93,10 @@ A full walkthrough video is in production and will be linked here once it's publ
 3. The panel auto-matches CSP → AE layer names
 4. Adjust the mapping manually (dropdowns) if needed
 5. Click **Apply Transforms** to batch-write keyframes
+
+> ⚠️ **Single-axis Scale import limitation**
+>
+> AE's Scale is a 2D property and can't be split per axis. If you import only one axis (e.g., uncheck `Scale Y` and keep `Scale X`), the other axis is pinned to the target layer's current scale value at time 0 — any existing keyframe animation on that axis will be flattened to that constant. To preserve the Y axis animation intact, import both axes together.
 
 ### Import Modes
 
@@ -140,6 +158,8 @@ ClipCam-AE/
 │   └── manifest.xml             # CEP extension manifest
 ├── docs/
 │   └── clipcam-format.md        # .clipcam binary format spec
+├── deploy.ps1                   # Local dev deploy script (creates CEP junction)
+├── build.ps1                    # Release packaging script (produces .zip / .zxp)
 └── index.html
 ```
 

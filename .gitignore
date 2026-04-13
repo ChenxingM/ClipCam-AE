@@ -15,3 +15,6 @@ dist/
 
 # Local signing cert (self-signed; must be backed up outside the repo)
 *.p12
+
+# Adobe ZXPSignCmd tool — downloaded locally, not redistributed
+ZXPSignCmd.exe

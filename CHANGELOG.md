@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-04-13
+## [1.0.0-beta] - 2026-04-13
 
-First public release.
+First public beta release. Core features are implemented and internally verified, but real-world coverage is limited — please test and report issues before a stable 1.0.0.
 
 ### Added
 
