@@ -66,10 +66,26 @@
 
 ### Import Modes
 
-| Mode | Description |
-|------|-------------|
-| **Camera Frame** | Creates a camera frame layer inside the LO comp — Position / Scale / Rotation map directly from CSP |
-| **LO Comp Layer** | Controls the LO layer inside the CAM comp — coordinates and rotation are inverted (camera pans right → layer pans left) |
+A typical 2D animation project uses a nested composition structure — an outer **Camera comp** with a nested **Layout (LO) precomp** inside:
+
+```
+Camera                ← Camera comp
+ └─ Layout (LO)       ← LO precomp; animate its transform to create the camera move
+     ├─ Frame         ← Camera frame layer; some project templates drive the Camera comp's camera move from this layer via a camera rig expression
+     ├─ C
+     ├─ B
+     └─ A
+```
+
+Two apply modes are currently implemented, matching two different workflows:
+
+| Mode | Where you operate | What it drives | Data direction |
+|------|-------------------|----------------|----------------|
+| **Camera Frame** | Inside the **LO comp** | Position / Scale / Rotation of the camera frame layer | Maps directly from CSP |
+| **LO Comp Layer** | Inside the **Camera comp** | Transform of the LO precomp layer | Inverted (camera pans right → LO layer pans left) |
+
+- **Camera Frame** — The camera frame layer lives inside the LO comp; CSP's camera data is burned onto it 1:1.
+- **LO Comp Layer** — The outer camera layer stays still; the *inverted* transform is written onto the LO precomp layer. Visually equivalent to a camera move. Use this mode when your project uses a camera rig expression on the Frame layer.
 
 ### LO Size
 
