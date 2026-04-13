@@ -27,6 +27,18 @@
 - 2 つのインポートモード：**Camera Frame** / **LO Comp Layer**
 - キーフレーム補間タイプを保持（Smooth / Linear / Hold）
 
+> 📦 **`.clipcam` フォーマットについて**
+>
+> Clip Studio Paint は現在、**カメラやレイヤーのトランスフォームといった生データをエクスポートする手段を提供していません**——出力できるのは完成した動画、連番画像、タイムラインデータのみです。CSP 内部のキーフレームとカーブをそのまま After Effects へ持ち込むために、本プロジェクトは `.clipcam` バイナリ中間フォーマットを定義しています。
+>
+> - **`.clipcam` フォーマット仕様**は完全公開：[docs/clipcam-format.md](docs/clipcam-format.md)
+> - **`.clipcam` パーサー**（`js/clipcam.js`）はパネルと共に Apache 2.0 で公開
+> - **`.clip → .clipcam` ジェネレーター**は現時点ではクローズドソースの `bin/clipcam-extractor.exe` が唯一（メンテナンスは自分、無料で利用可、リバースエンジニアリング禁止）
+>
+> `clipcam-extractor` は筆者がメンテナンスしているクローズドソースの `.clip` ファイルパーサーです。**CSP の `.clip` フォーマット自体に公開仕様が存在しない**ため、筆者自身で `.clip` ファイル構造のリバースエンジニアリングを行いました。`.clip` フォーマットに関するリバースエンジニアリング資料は現時点では非公開で、まだ下書き段階にとどまっています。将来的に整理して公開する可能性があります。
+>
+> 一方で `.clipcam` 自体は完全にオープンです：仕様に基づいて独自の `.clipcam` リーダーを実装したり、CSP 以外のデータソースから `.clipcam` ファイルを生成したりすることは自由で、本パネルはそれらを読み込めます。
+
 ## デモ動画
 
 使い方を紹介する動画を制作中です。公開後、こちらにリンクを追加します。
@@ -119,7 +131,7 @@ ClipCam-AE/
 │   └── style.css
 ├── js/
 │   ├── CSInterface.js           # Adobe CEP SDK
-│   ├── clipcam.js               # .clipcam v3 パーサー
+│   ├── clipcam.js               # .clipcam パーサー
 │   ├── curve-canvas.js          # カーブエディター
 │   └── main.js                  # メイン UI ロジック
 ├── jsx/

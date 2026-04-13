@@ -25,6 +25,18 @@
 - 两种导入模式：Camera Frame / LO Comp Layer
 - 关键帧插值类型保留（Smooth / Linear / Hold）
 
+> 📦 **关于 `.clipcam` 格式**
+>
+> Clip Studio Paint 目前**不提供导出摄像机 / 图层变形原始数据的途径**——只能输出成品视频、序列帧或时间轴信息。为了把 CSP 内部的关键帧和曲线完整搬到 After Effects，本项目设计了 `.clipcam` 二进制中间格式。
+>
+> - **`.clipcam` 格式规范**完全开放：[docs/clipcam-format.md](docs/clipcam-format.md)
+> - **`.clipcam` 解析器**（`js/clipcam.js`）随面板一起开源（Apache 2.0）
+> - **`.clip → .clipcam` 生成器**目前只有闭源的 `bin/clipcam-extractor.exe`（由我维护，免费使用，禁止反编译）
+>
+> clipcam-extractor 是我维护的闭源 `.clip` 文件解析器。由于**CSP 的 `.clip` 格式本身没有公开规范**，我对 `.clip` 文件结构进行了逆向解析。关于 `.clip` 格式的逆向研究文档目前尚未对外公开，现仍然处于初步阶段。未来可能会整理发布。
+>
+> 而 `.clipcam` 本身是完全开放的：任何人都可以基于公开规范写自己的 `.clipcam` 读取工具，或从其他数据来源（非 CSP）生成 `.clipcam` 文件，本面板都能读入。
+
 ## 演示视频
 
 完整的使用演示视频正在制作中，发布后会在此处更新链接。
@@ -50,7 +62,7 @@
    （也可以直接跑仓库里的 `deploy.ps1`，会自动配置）
 3. 重启 After Effects → **Window** → **Extensions** → **ClipCamAE**
 
-### 从源码运行（贡献者）
+### 从源码运行
 
 ```powershell
 git clone https://github.com/ChenxingM/ClipCam-AE.git
@@ -129,7 +141,7 @@ ClipCam-AE/
 │   └── style.css
 ├── js/
 │   ├── CSInterface.js           # Adobe CEP SDK
-│   ├── clipcam.js               # .clipcam v3 格式解析器
+│   ├── clipcam.js               # .clipcam 格式解析器
 │   ├── curve-canvas.js          # 曲线编辑器 Canvas
 │   └── main.js                  # 主 UI 逻辑
 ├── jsx/

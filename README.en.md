@@ -27,6 +27,18 @@
 - Two import modes: **Camera Frame** / **LO Comp Layer**
 - Preserves keyframe interpolation types (Smooth / Linear / Hold)
 
+> 📦 **About the `.clipcam` format**
+>
+> Clip Studio Paint currently offers **no way to export raw camera or layer transform data** — it can only output finished video, image sequences, or timeline data. To carry CSP's internal keyframes and curves over to After Effects intact, this project defines the `.clipcam` binary intermediate format.
+>
+> - **`.clipcam` format spec** is fully open: [docs/clipcam-format.md](docs/clipcam-format.md)
+> - **`.clipcam` parser** (`js/clipcam.js`) ships with the panel under Apache 2.0
+> - **`.clip → .clipcam` generator** — currently only the closed-source `bin/clipcam-extractor.exe` (maintained by me, free to use, reverse engineering prohibited)
+>
+> `clipcam-extractor` is a closed-source `.clip` file parser I maintain. Because **CSP's `.clip` format has no public spec**, I had to reverse-engineer the `.clip` file structure myself. My reverse-engineering notes on `.clip` are not public yet — they're still at an early draft stage, and I may clean them up and release them in the future.
+>
+> The `.clipcam` format itself stays fully open: anyone can write their own `.clipcam` reader against the spec, or emit `.clipcam` files from other (non-CSP) data sources, and the panel will read them.
+
 ## Demo video
 
 A full walkthrough video is in production and will be linked here once it's published.
@@ -119,7 +131,7 @@ ClipCam-AE/
 │   └── style.css
 ├── js/
 │   ├── CSInterface.js           # Adobe CEP SDK
-│   ├── clipcam.js               # .clipcam v3 format parser
+│   ├── clipcam.js               # .clipcam format parser
 │   ├── curve-canvas.js          # Curve editor canvas
 │   └── main.js                  # Main UI logic
 ├── jsx/
