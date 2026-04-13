@@ -65,8 +65,10 @@ $include = @(
     "jsx",
     "index.html",
     "LICENSE",
+    "NOTICE",
     "README.md",
     "README.en.md",
+    "README.ja.md",
     "THIRD_PARTY_NOTICES",
     "CHANGELOG.md"
 )
