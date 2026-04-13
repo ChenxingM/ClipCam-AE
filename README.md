@@ -25,6 +25,10 @@
 - 两种导入模式：Camera Frame / LO Comp Layer
 - 关键帧插值类型保留（Smooth / Linear / Hold）
 
+## 演示视频
+
+完整的使用演示视频正在制作中，发布后会在此处更新链接。
+
 ## 安装
 
 > 🇺🇸 English version: [README.en.md](README.en.md)

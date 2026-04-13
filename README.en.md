@@ -27,6 +27,10 @@
 - Two import modes: **Camera Frame** / **LO Comp Layer**
 - Preserves keyframe interpolation types (Smooth / Linear / Hold)
 
+## Demo video
+
+A full walkthrough video is in production and will be linked here once it's published.
+
 ## Installation
 
 ### Option A — `.zxp` installer (recommended)
