@@ -253,6 +253,96 @@ function setScaleKeyframes(prop, kfs, fps, invert) {
     applyEasing(prop, kfs, fps, true);
 }
 
+function applyAspectScale(scaleProp, pdX, pdY, fps) {
+    // Snapshot before clear: when only one axis is imported, the other axis
+    // must keep its current value, not revert to CSP default.
+    var curVal;
+    try { curVal = scaleProp.valueAtTime(0, false); } catch (e) { curVal = [100, 100]; }
+
+    _clearKeys(scaleProp);
+
+    var kfsX = pdX ? pdX.keyframes : [];
+    var kfsY = pdY ? pdY.keyframes : [];
+    var defX = pdX ? ((typeof pdX.defaultValue === "number") ? pdX.defaultValue : 100) : curVal[0];
+    var defY = pdY ? ((typeof pdY.defaultValue === "number") ? pdY.defaultValue : 100) : curVal[1];
+
+    var frameSet = {};
+    for (var i = 0; i < kfsX.length; i++) frameSet[kfsX[i].frame] = true;
+    for (var i = 0; i < kfsY.length; i++) frameSet[kfsY[i].frame] = true;
+    var frames = [];
+    for (var f in frameSet) if (frameSet.hasOwnProperty(f)) frames.push(parseInt(f, 10));
+    frames.sort(function (a, b) { return a - b; });
+    if (frames.length === 0) return;
+
+    function sampleAt(kfs, frame, def) {
+        if (!kfs.length) return def;
+        if (frame <= kfs[0].frame) return kfs[0].value;
+        if (frame >= kfs[kfs.length - 1].frame) return kfs[kfs.length - 1].value;
+        for (var i = 1; i < kfs.length; i++) {
+            if (kfs[i].frame === frame) return kfs[i].value;
+            if (kfs[i].frame > frame) {
+                var prev = kfs[i - 1], next = kfs[i];
+                var t = (frame - prev.frame) / (next.frame - prev.frame);
+                return prev.value + (next.value - prev.value) * t;
+            }
+        }
+        return def;
+    }
+
+    function findKd(kfs, frame) {
+        for (var i = 0; i < kfs.length; i++) if (kfs[i].frame === frame) return kfs[i];
+        return null;
+    }
+
+    for (var fi = 0; fi < frames.length; fi++) {
+        var fr = frames[fi];
+        var time = (fr - 1) / fps;
+        var kx = findKd(kfsX, fr);
+        var ky = findKd(kfsY, fr);
+        var xv = kx ? kx.value : sampleAt(kfsX, fr, defX);
+        var yv = ky ? ky.value : sampleAt(kfsY, fr, defY);
+        scaleProp.setValueAtTime(time, [xv, yv]);
+    }
+
+    for (var ki = 1; ki <= scaleProp.numKeys; ki++) {
+        var fr = frames[ki - 1];
+        var kdX = findKd(kfsX, fr);
+        var kdY = findKd(kfsY, fr);
+        var ref = kdX || kdY;
+
+        if (ref.interpType === 2) {
+            scaleProp.setInterpolationTypeAtKey(ki,
+                KeyframeInterpolationType.BEZIER,
+                KeyframeInterpolationType.HOLD);
+            continue;
+        }
+        if (ref.interpType === 1) {
+            scaleProp.setInterpolationTypeAtKey(ki,
+                KeyframeInterpolationType.LINEAR,
+                KeyframeInterpolationType.LINEAR);
+            continue;
+        }
+
+        scaleProp.setInterpolationTypeAtKey(ki,
+            KeyframeInterpolationType.BEZIER,
+            KeyframeInterpolationType.BEZIER);
+
+        try {
+            scaleProp.setTemporalEaseAtKey(ki,
+                [_axisEase(kdX, "left", fps), _axisEase(kdY, "left", fps)],
+                [_axisEase(kdX, "right", fps), _axisEase(kdY, "right", fps)]);
+        } catch (e) {}
+    }
+}
+
+function _axisEase(kd, side, fps) {
+    if (!kd) return new KeyframeEase(0, 33.33);
+    var slope = side === "left" ? kd.leftSlope : kd.rightSlope;
+    var weight = side === "left" ? kd.leftHandleWeight : kd.rightHandleWeight;
+    var inf = Math.abs(weight) > 0.001 ? clamp(Math.abs(weight), 0.1, 100) : 33.33;
+    return new KeyframeEase(slope * fps, inf);
+}
+
 function setRotationKeyframes(prop, kfs, fps, negate) {
     _clearKeys(prop);
     for (var k = 0; k < kfs.length; k++) {
@@ -371,25 +461,29 @@ function importLayerTransform(jsonStr) {
         var fps = data.frameRate;
         var transform = layer.property("Transform");
 
+        // AspectScale X/Y must be written in a single merged pass — AE Scale
+        // is 2D and can't be dimension-separated.
+        var aspectX = null, aspectY = null;
+        var mainProps = [];
         for (var i = 0; i < data.properties.length; i++) {
             var pd = data.properties[i];
             if (!pd.keyframes || pd.keyframes.length === 0) continue;
-
             if (pd.name === "ImageAspectScale") {
-                // Non-uniform scale → AE Scale [x, y]
-                var scaleProp = transform.property("Scale");
-                _clearKeys(scaleProp);
-                var axisIdx = pd.axis === "X" ? 0 : 1;
-                for (var k = 0; k < pd.keyframes.length; k++) {
-                    var time = (pd.keyframes[k].frame - 1) / fps;
-                    var cur = scaleProp.valueAtTime(time, false);
-                    var nv = [cur[0], cur[1]];
-                    nv[axisIdx] = pd.keyframes[k].value;
-                    scaleProp.setValueAtTime(time, nv);
-                }
-                applyEasing(scaleProp, pd.keyframes, fps, true);
+                if (pd.axis === "X") aspectX = pd;
+                else if (pd.axis === "Y") aspectY = pd;
+            } else {
+                mainProps.push(pd);
+            }
+        }
 
-            } else if (pd.name === "ImagePosition") {
+        if (aspectX || aspectY) {
+            applyAspectScale(transform.property("Scale"), aspectX, aspectY, fps);
+        }
+
+        for (var i = 0; i < mainProps.length; i++) {
+            var pd = mainProps[i];
+
+            if (pd.name === "ImagePosition") {
                 // CSP position is in canvas coords; AE layer defaults to canvas center.
                 // Subtract CropFrame offset so that CropFrame center → canvas center.
                 var cropOff = pd.axis === "X" ? (data.cropOffsetX || 0) : (data.cropOffsetY || 0);

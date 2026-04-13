@@ -109,6 +109,20 @@
       document.getElementById("btn-layer-automatch").addEventListener("click", function() { autoMatchLayers(); renderLayerList(); });
       document.getElementById("btn-apply-transforms").addEventListener("click", applyTransformsToAE);
 
+      // Persist tag toggles into the selected row's entry so batch apply
+      // reads per-row selection, not the on-screen DOM.
+      document.getElementById("layer-prop-bar").addEventListener("click", function (e) {
+        var tag = e.target;
+        while (tag && tag !== this && !(tag.classList && tag.classList.contains("prop-tag"))) tag = tag.parentNode;
+        if (!tag || tag === this || tag.classList.contains("disabled")) return;
+        var entry = _layerMatches[_selectedLayerRow];
+        if (!entry) return;
+        if (!entry.activeProps) entry.activeProps = {};
+        var idx = tag.getAttribute("data-index");
+        if (tag.classList.contains("active")) entry.activeProps[idx] = true;
+        else delete entry.activeProps[idx];
+      });
+
       // Drag & drop
       var dragCount = 0;
       function showDrag() {
@@ -428,7 +442,7 @@
   // Layer tab
 
   var _aeLayers = [];       // [{index, name}, ...]
-  var _layerMatches = {};   // aeIdx → transformIdx
+  var _layerMatches = {};   // aeIdx → { xfmIdx, activeProps: {idx:true}|null }
   var _selectedLayerRow = -1;
 
   function updateLayerTab() {
@@ -503,7 +517,7 @@
       }
 
       if (bestIdx >= 0 && !ambiguous) {
-        _layerMatches[ai] = bestIdx;
+        _layerMatches[ai] = { xfmIdx: bestIdx, activeProps: null };
         usedXfm[bestIdx] = true;
       }
     }
@@ -550,7 +564,7 @@
         opt.textContent = xfms[xi].name;
         select.appendChild(opt);
       }
-      if (_layerMatches[ai] !== undefined) select.value = _layerMatches[ai];
+      if (_layerMatches[ai] !== undefined) select.value = _layerMatches[ai].xfmIdx;
 
       // Events
       (function (aeIdx, rowEl, selEl) {
@@ -564,7 +578,7 @@
             delete _layerMatches[aeIdx];
             rowEl.classList.remove("matched");
           } else {
-            _layerMatches[aeIdx] = parseInt(val);
+            _layerMatches[aeIdx] = { xfmIdx: parseInt(val), activeProps: null };
             rowEl.classList.add("matched");
           }
           // Update match info
@@ -593,15 +607,29 @@
       rows[i].classList.toggle("selected", parseInt(rows[i].getAttribute("data-ae-idx")) === aeIdx);
     }
 
-    // Show transform curves for this row's assigned transform
-    var xfmIdx = _layerMatches[aeIdx];
-    if (xfmIdx !== undefined && fileData && fileData.transforms[xfmIdx]) {
-      var xfm = fileData.transforms[xfmIdx];
-      var activeIndices = buildPropTags(xfm.fcurves, "layer-prop-bar", LAYER_PROP_GROUPS);
+    var entry = _layerMatches[aeIdx];
+    if (entry && fileData && fileData.transforms[entry.xfmIdx]) {
+      var xfm = fileData.transforms[entry.xfmIdx];
+      var defaultIndices = buildPropTags(xfm.fcurves, "layer-prop-bar", LAYER_PROP_GROUPS);
+
+      if (!entry.activeProps) {
+        entry.activeProps = {};
+        for (var i = 0; i < defaultIndices.length; i++) entry.activeProps[defaultIndices[i]] = true;
+      } else {
+        var tags = document.querySelectorAll("#layer-prop-bar .prop-tag");
+        for (var i = 0; i < tags.length; i++) {
+          var idx = tags[i].getAttribute("data-index");
+          tags[i].classList.toggle("active", entry.activeProps[idx] === true);
+        }
+      }
+
+      var activeProps = entry.activeProps;
       requestAnimationFrame(function () {
         layerCurveCanvas._resize();
         layerCurveCanvas.setCurves(xfm.fcurves, fileData.startFrame, fileData.endFrame);
-        for (var i = 0; i < activeIndices.length; i++) layerCurveCanvas.setVisible(activeIndices[i], true);
+        for (var k in activeProps) {
+          if (activeProps[k]) layerCurveCanvas.setVisible(parseInt(k, 10), true);
+        }
       });
     } else {
       document.getElementById("layer-prop-bar").innerHTML = "";
@@ -614,10 +642,13 @@
   function applyTransformsToAE() {
     var matched = [];
     for (var ai in _layerMatches) {
-      var xi = _layerMatches[ai];
-      if (fileData && fileData.transforms[xi]) {
-        matched.push({ aeLayer: _aeLayers[parseInt(ai)], transform: fileData.transforms[xi] });
-      }
+      var entry = _layerMatches[ai];
+      if (!entry || !fileData || !fileData.transforms[entry.xfmIdx]) continue;
+      matched.push({
+        aeLayer: _aeLayers[parseInt(ai)],
+        transform: fileData.transforms[entry.xfmIdx],
+        activeProps: entry.activeProps,
+      });
     }
     if (matched.length === 0) { setLayerStatus("No matched layers", "error"); return; }
 
@@ -631,14 +662,18 @@
       }
       setLayerStatus("Applying " + (idx + 1) + "/" + matched.length + "...");
       var m = matched[idx];
-      // Collect active property tags for this layer's curves
-      var activeTags = document.querySelectorAll("#layer-prop-bar .prop-tag.active");
-      var activeSel = {};
-      for (var ai = 0; ai < activeTags.length; ai++) activeSel[activeTags[ai].getAttribute("data-index")] = true;
+      // null = row never opened; fall back to buildPropTags' non-static default.
+      var activeSel = m.activeProps;
+      if (!activeSel) {
+        activeSel = {};
+        for (var fi = 0; fi < m.transform.fcurves.length; fi++) {
+          if (!isStatic(m.transform.fcurves[fi])) activeSel[fi] = true;
+        }
+      }
 
       var props = [];
       for (var fi = 0; fi < m.transform.fcurves.length; fi++) {
-        if (!activeSel[String(fi)]) continue;
+        if (!activeSel[fi]) continue;
         var fc = m.transform.fcurves[fi];
         if (!fc.keyframes || fc.keyframes.length === 0) continue;
         var kfs = [];
