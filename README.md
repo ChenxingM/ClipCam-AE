@@ -20,7 +20,7 @@
 
 > 🧪 **公开测试版 (Public Beta) — v1.0.0-beta**
 >
-> 这是 ClipCam-AE 的首个公开测试版本。核心功能已实现并经过内部验证，但尚未在大量真实项目中跑过。发布此版本的目的是收集早期反馈和真实使用场景下的 bug 报告。欢迎试用，遇到问题请到 [Issues](https://github.com/ChenxingM/ClipCam-AE/issues) 反馈——稳定版 1.0.0 将在收到足够反馈后发布。
+> 这是 ClipCam-AE 的首个公开测试版本。核心功能已实现并经过内部验证，但尚未在大量真实项目中跑过。当前仅支持 Windows + After Effects 2020 及以上版本。发布此版本的目的是收集早期反馈和真实使用场景下的 bug 报告——欢迎试用，遇到问题请到 [Issues](https://github.com/ChenxingM/ClipCam-AE/issues) 反馈，稳定版 1.0.0 将在收到足够反馈后发布。
 
 ## 功能
 
@@ -33,7 +33,7 @@
 
 > 📦 **关于 `.clipcam` 格式**
 >
-> Clip Studio Paint 目前**不提供导出摄像机 / 图层变形原始数据的途径**——只能输出成品视频、序列帧或时间轴信息。为了把 CSP 内部的关键帧和曲线完整搬到 After Effects，本项目设计了 `.clipcam` 二进制中间格式。
+> Clip Studio Paint 目前**不提供导出摄像机 / 图层变形原始数据的途径**——只能输出成品视频、序列帧或摄影表（律表）信息，而这些都不是可以直接还原摄像机曲线的原始动画数据。为了把 CSP 内部的关键帧和曲线完整搬到 After Effects，本项目设计了 `.clipcam` 二进制中间格式。
 >
 > - **`.clipcam` 格式规范**完全开放：[docs/clipcam-format.md](docs/clipcam-format.md)
 > - **`.clipcam` 解析器**（`js/clipcam.js`）随面板一起开源（Apache 2.0）
@@ -96,7 +96,7 @@ powershell -ExecutionPolicy Bypass -File deploy.ps1
 
 > ⚠️ **Scale 单轴导入的限制**
 >
-> AE 的 Scale 是二维属性，无法按轴分离。如果只导入其中一轴（例如关闭 `Scale Y`、只勾选 `Scale X`），另一轴会被固定为目标图层当前（时间 0）的 Scale 值——该轴上原有的关键帧动画会被压平成这个常量。要完整保留 Y 轴的动画，请同时勾选两轴一起导入。
+> AE 的 Scale 是二维属性，无法按轴分离。如果只导入其中一轴（例如关闭 `Scale Y`、只勾选 `Scale X`），另一轴会被固定为目标图层在导入时的当前 Scale 值（以 AE 读到的初始值为准）——该轴上原有的关键帧动画会被压平成这个常量。要完整保留 Y 轴的动画，请同时勾选两轴一起导入。
 
 ### 导入模式
 
@@ -144,7 +144,7 @@ ClipCam-AE/
 ├── bin/
 │   ├── extractor.lock.json      # 固定 extractor 版本 + SHA256 + 下载地址
 │   ├── fetch-extractor.ps1      # 按 lock 文件拉取并校验 extractor
-│   └── clipcam-extractor.exe    # 按需下载（不进仓库），见下方章节
+│   └── clipcam-extractor.exe    # 按需下载（不进仓库）；闭源二进制，见下方章节
 ├── css/
 │   └── style.css
 ├── js/
@@ -197,14 +197,14 @@ powershell -ExecutionPolicy Bypass -File bin/fetch-extractor.ps1
 - ✅ 免费用于个人及商业用途
 - ✅ 可随本面板一起分发（作为依赖二进制）
 - ❌ 禁止反编译、反汇编或逆向工程
-- ❌ 禁止单独从 Release 页提取并再分发
+- ❌ 禁止单独从 Release 页提取并再分发该二进制
 - ❌ 不附带任何形式的担保（AS-IS）
 
 如在使用中遇到问题或需要其他平台支持，请在 [Issues](https://github.com/ChenxingM/ClipCam-AE/issues) 中反馈。
 
 ## 使用与署名
 
-本项目永久免费开源，今后也不会以任何形式收费。
+本仓库中的面板代码永久免费开源，今后也不会以任何形式收费。
 
 > 🇯🇵 [日本語](README.ja.md) · 🇺🇸 [English](README.en.md)
 

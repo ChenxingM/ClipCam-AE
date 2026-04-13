@@ -20,7 +20,7 @@
 
 > 🧪 **Public Beta — v1.0.0-beta**
 >
-> This is the first public beta of ClipCam-AE. Core features are implemented and validated internally, but haven't been battle-tested across a wide range of real projects yet. This release is published specifically to gather early feedback and real-world bug reports. Please try it and report anything you hit at [Issues](https://github.com/ChenxingM/ClipCam-AE/issues) — a stable 1.0.0 will follow once enough feedback is collected.
+> This is the first public beta of ClipCam-AE. Core features are implemented and validated internally, but haven't been battle-tested across a wide range of real projects yet. **Requires Windows + After Effects 2020 or later.** This release is published specifically to gather early feedback and real-world bug reports — please try it and report anything you hit at [Issues](https://github.com/ChenxingM/ClipCam-AE/issues). A stable 1.0.0 will follow once enough feedback is collected.
 
 ## Features
 
@@ -33,7 +33,7 @@
 
 > 📦 **About the `.clipcam` format**
 >
-> Clip Studio Paint currently offers **no way to export raw camera or layer transform data** — it can only output finished video, image sequences, or timeline data. To carry CSP's internal keyframes and curves over to After Effects intact, this project defines the `.clipcam` binary intermediate format.
+> Clip Studio Paint currently offers **no way to export raw camera or layer transform data** — it can only output finished video, image sequences, or TimeSheet data (CSP's exposure-sheet view), none of which contain the raw animation data needed to reconstruct camera curves. To carry CSP's internal keyframes and curves over to After Effects intact, this project defines the `.clipcam` binary intermediate format.
 >
 > - **`.clipcam` format spec** is fully open: [docs/clipcam-format.en.md](docs/clipcam-format.en.md)
 > - **`.clipcam` parser** (`js/clipcam.js`) ships with the panel under Apache 2.0
@@ -96,7 +96,7 @@ powershell -ExecutionPolicy Bypass -File deploy.ps1
 
 > ⚠️ **Single-axis Scale import limitation**
 >
-> AE's Scale is a 2D property and can't be split per axis. If you import only one axis (e.g., uncheck `Scale Y` and keep `Scale X`), the other axis is pinned to the target layer's current scale value at time 0 — any existing keyframe animation on that axis will be flattened to that constant. To preserve the Y axis animation intact, import both axes together.
+> AE's Scale is a 2D property and can't be split per axis. If you import only one axis (e.g., uncheck `Scale Y` and keep `Scale X`), the other axis is pinned to the target layer's current Scale value at import time (whatever AE reads as the initial value) — any existing keyframe animation on that axis will be flattened to that constant. To preserve the Y axis animation intact, import both axes together.
 
 ### Import Modes
 
@@ -144,7 +144,7 @@ ClipCam-AE/
 ├── bin/
 │   ├── extractor.lock.json      # Pinned extractor version + SHA256 + download URL
 │   ├── fetch-extractor.ps1      # Fetches and verifies the extractor binary
-│   └── clipcam-extractor.exe    # Fetched on demand (not in the repo)
+│   └── clipcam-extractor.exe    # Fetched on demand (not in the repo); closed-source binary
 ├── css/
 │   └── style.css
 ├── js/
@@ -203,7 +203,7 @@ Please open an [Issue](https://github.com/ChenxingM/ClipCam-AE/issues) for bugs 
 
 ## Use and credit
 
-This project is permanently free and open-source. It will never be monetized in any form.
+The panel code in this repository is permanently free and open-source. It will never be monetized in any form.
 
 > 🇯🇵 [日本語](README.ja.md) · 🇨🇳 [中文](README.md)
 
