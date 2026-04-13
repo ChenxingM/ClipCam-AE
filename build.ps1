@@ -95,18 +95,16 @@ Copy-Item $extractor (Join-Path $stageBin "clipcam-extractor.exe") -Force
 Write-Host ("  staged -> {0}" -f $stageDir) -ForegroundColor DarkGray
 
 # Build zip
+#
+# Files are packed at the archive root. Users extract to
+# ...\AppData\Roaming\Adobe\CEP\extensions\ClipCam-AE\ so the folder name
+# matches what AE expects; adding an inner "ClipCam-AE/" wrapper would
+# produce .../ClipCam-AE/ClipCam-AE/ and break the install.
 
 $zipPath = Join-Path $distDir ("ClipCam-AE-v{0}.zip" -f $version)
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 
-# Wrap the contents in a top-level "ClipCam-AE" folder so extract-to-CEP works cleanly
-$wrapDir = Join-Path $stageDir "ClipCam-AE"
-New-Item -ItemType Directory -Path $wrapDir -Force | Out-Null
-Get-ChildItem $stageDir -Force | Where-Object { $_.Name -ne "ClipCam-AE" } | ForEach-Object {
-    Move-Item $_.FullName (Join-Path $wrapDir $_.Name) -Force
-}
-
-Compress-Archive -Path $wrapDir -DestinationPath $zipPath -Force -CompressionLevel Optimal
+Compress-Archive -Path (Join-Path $stageDir "*") -DestinationPath $zipPath -Force -CompressionLevel Optimal
 
 $zipSize = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
 Write-Host ("[ok] zip:  {0} ({1} MB)" -f $zipPath, $zipSize) -ForegroundColor Green
@@ -134,11 +132,6 @@ if (-not $zxpSignPath) {
     exit 0
 }
 
-# Re-flatten the stage directory back (ZXPSignCmd signs a folder, not the wrapper)
-$signInput = Join-Path $distDir ".signroot"
-if (Test-Path $signInput) { Remove-Item $signInput -Recurse -Force }
-Copy-Item $wrapDir $signInput -Recurse -Force
-
 # Generate self-signed cert on first run
 if (-not (Test-Path $certPath)) {
     Write-Host ""
@@ -152,10 +145,8 @@ if (-not (Test-Path $certPath)) {
 $zxpPath = Join-Path $distDir ("ClipCam-AE-v{0}.zxp" -f $version)
 if (Test-Path $zxpPath) { Remove-Item $zxpPath -Force }
 
-& $zxpSignPath -sign $signInput $zxpPath $certPath $certPwd
+& $zxpSignPath -sign $stageDir $zxpPath $certPath $certPwd
 if ($LASTEXITCODE -ne 0) { throw "ZXPSignCmd -sign failed ($LASTEXITCODE)" }
-
-Remove-Item $signInput -Recurse -Force
 
 $zxpSize = [math]::Round((Get-Item $zxpPath).Length / 1MB, 2)
 Write-Host ("[ok] zxp:  {0} ({1} MB)" -f $zxpPath, $zxpSize) -ForegroundColor Green
