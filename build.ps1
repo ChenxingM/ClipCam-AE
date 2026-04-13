@@ -111,13 +111,16 @@ Write-Host ("[ok] zip:  {0} ({1} MB)" -f $zipPath, $zipSize) -ForegroundColor Gr
 
 # Try to build .zxp
 
-$zxpSign = Get-Command ZXPSignCmd -ErrorAction SilentlyContinue
-if (-not $zxpSign) {
+$zxpSignPath = $null
+$cmd = Get-Command ZXPSignCmd -ErrorAction SilentlyContinue
+if ($cmd) {
+    $zxpSignPath = $cmd.Source
+} else {
     $localZxp = Join-Path $root "ZXPSignCmd.exe"
-    if (Test-Path $localZxp) { $zxpSign = Get-Item $localZxp }
+    if (Test-Path $localZxp) { $zxpSignPath = (Resolve-Path $localZxp).Path }
 }
 
-if (-not $zxpSign) {
+if (-not $zxpSignPath) {
     Write-Host ""
     Write-Host "[skip] .zxp not built — ZXPSignCmd.exe not found." -ForegroundColor Yellow
     Write-Host "       Download from Adobe Exchange Developer Tools:" -ForegroundColor Yellow
@@ -138,7 +141,7 @@ Copy-Item $wrapDir $signInput -Recurse -Force
 if (-not (Test-Path $certPath)) {
     Write-Host ""
     Write-Host "[cert] generating self-signed certificate (first run only)..." -ForegroundColor Cyan
-    & $zxpSign.Source -selfSignedCert US CA "ClipCam-AE" "ChenxingM" $certPwd $certPath
+    & $zxpSignPath -selfSignedCert US CA "ClipCam-AE" "ChenxingM" $certPwd $certPath
     if ($LASTEXITCODE -ne 0) { throw "ZXPSignCmd -selfSignedCert failed ($LASTEXITCODE)" }
     Write-Host ("[cert] saved to {0}" -f $certPath) -ForegroundColor Green
     Write-Host "[cert] KEEP THIS FILE — reuse it for every future release." -ForegroundColor Yellow
@@ -147,7 +150,7 @@ if (-not (Test-Path $certPath)) {
 $zxpPath = Join-Path $distDir ("ClipCam-AE-v{0}.zxp" -f $version)
 if (Test-Path $zxpPath) { Remove-Item $zxpPath -Force }
 
-& $zxpSign.Source -sign $signInput $zxpPath $certPath $certPwd
+& $zxpSignPath -sign $signInput $zxpPath $certPath $certPwd
 if ($LASTEXITCODE -ne 0) { throw "ZXPSignCmd -sign failed ($LASTEXITCODE)" }
 
 Remove-Item $signInput -Recurse -Force
