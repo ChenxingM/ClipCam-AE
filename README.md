@@ -45,7 +45,7 @@
 
 ## 演示视频
 
-[bilibili](https://www.bilibili.com/video/BV14dEq6NEAv
+[bilibili](https://www.bilibili.com/video/BV14dEq6NEAv)
 
 ## 安装
 
