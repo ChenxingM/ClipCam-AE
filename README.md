@@ -45,7 +45,7 @@
 
 ## 演示视频
 
-完整的使用演示视频正在制作中，发布后会在此处更新链接。
+[bilibili](https://www.bilibili.com/video/BV14dEq6NEAv
 
 ## 安装
 
