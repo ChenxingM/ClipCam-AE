@@ -595,6 +595,25 @@ body {
 }
 .layer-assign:focus { border-color: var(--primary); }
 
+/* Per-row apply button — only shown on matched rows */
+.layer-apply-btn {
+  display: none;
+  flex-shrink: 0;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dim);
+  font-size: 10px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color var(--speed-fast), color var(--speed-fast);
+}
+.layer-row.matched .layer-apply-btn { display: inline-flex; align-items: center; }
+.layer-apply-btn:hover { border-color: var(--primary); color: var(--text); }
+.layer-apply-btn:active { transform: scale(0.96); }
+
 .layer-footer {
   display: flex;
   align-items: center;

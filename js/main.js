@@ -591,9 +591,19 @@
         selEl.addEventListener("click", function (e) { e.stopPropagation(); });
       })(ai, row, select);
 
+      // Per-row apply (one layer at a time). CSS hides it on unmatched rows.
+      var applyBtn = document.createElement("button");
+      applyBtn.className = "layer-apply-btn";
+      applyBtn.textContent = "Apply";
+      applyBtn.title = "Apply this layer only";
+      (function (aeIdx) {
+        applyBtn.addEventListener("click", function (e) { e.stopPropagation(); applyOneLayer(aeIdx); });
+      })(ai);
+
       row.appendChild(nameSpan);
       row.appendChild(arrow);
       row.appendChild(select);
+      row.appendChild(applyBtn);
       wrap.appendChild(row);
     }
   }
@@ -639,16 +649,70 @@
 
   // Apply transforms
 
+  function _matchEntry(aeIdx) {
+    var entry = _layerMatches[aeIdx];
+    if (!entry || !fileData || !fileData.transforms[entry.xfmIdx]) return null;
+    return {
+      aeLayer: _aeLayers[aeIdx],
+      transform: fileData.transforms[entry.xfmIdx],
+      activeProps: entry.activeProps,
+    };
+  }
+
+  function _buildLayerPayload(m) {
+    // null = row never opened; fall back to buildPropTags' non-static default.
+    var activeSel = m.activeProps;
+    if (!activeSel) {
+      activeSel = {};
+      for (var fi = 0; fi < m.transform.fcurves.length; fi++) {
+        if (!isStatic(m.transform.fcurves[fi])) activeSel[fi] = true;
+      }
+    }
+
+    var props = [];
+    for (var fi = 0; fi < m.transform.fcurves.length; fi++) {
+      if (!activeSel[fi]) continue;
+      var fc = m.transform.fcurves[fi];
+      if (!fc.keyframes || fc.keyframes.length === 0) continue;
+      var kfs = [];
+      for (var k = 0; k < fc.keyframes.length; k++) {
+        var kf = fc.keyframes[k];
+        kfs.push({ frame: kf.frame, value: kf.value, leftSlope: kf.leftSlope, rightSlope: kf.rightSlope,
+          leftHandleWeight: kf.leftHandleWeight, rightHandleWeight: kf.rightHandleWeight, interpType: kf.interpType });
+      }
+      props.push({ name: fc.propertyName, axis: fc.axis, label: fc.label, defaultValue: fc.defaultValue, keyframes: kfs });
+    }
+
+    return JSON.stringify({
+      layerIndex: m.aeLayer.index,
+      frameRate: fileData.frameRate,
+      canvasWidth: fileData.canvasWidth,
+      canvasHeight: fileData.canvasHeight,
+      cropOffsetX: fileData.cropOffsetX || 0,
+      cropOffsetY: fileData.cropOffsetY || 0,
+      properties: props,
+    });
+  }
+
+  // Apply a single matched layer (one-at-a-time, from the per-row button).
+  function applyOneLayer(aeIdx) {
+    var m = _matchEntry(aeIdx);
+    if (!m) { setLayerStatus("Row not matched", "error"); return; }
+    setLayerStatus("Applying " + m.aeLayer.name + "...");
+    csInterface.evalScript("importLayerTransform(" + JSON.stringify(_buildLayerPayload(m)) + ")", function (result) {
+      try {
+        var res = JSON.parse(result);
+        if (res.error) { setLayerStatus("Error on " + m.aeLayer.name + ": " + res.error, "error"); return; }
+        setLayerStatus("\u2713 Applied " + m.aeLayer.name, "success");
+      } catch (e) { setLayerStatus("Apply failed", "error"); }
+    });
+  }
+
   function applyTransformsToAE() {
     var matched = [];
     for (var ai in _layerMatches) {
-      var entry = _layerMatches[ai];
-      if (!entry || !fileData || !fileData.transforms[entry.xfmIdx]) continue;
-      matched.push({
-        aeLayer: _aeLayers[parseInt(ai)],
-        transform: fileData.transforms[entry.xfmIdx],
-        activeProps: entry.activeProps,
-      });
+      var m = _matchEntry(parseInt(ai, 10));
+      if (m) matched.push(m);
     }
     if (matched.length === 0) { setLayerStatus("No matched layers", "error"); return; }
 
@@ -662,40 +726,7 @@
       }
       setLayerStatus("Applying " + (idx + 1) + "/" + matched.length + "...");
       var m = matched[idx];
-      // null = row never opened; fall back to buildPropTags' non-static default.
-      var activeSel = m.activeProps;
-      if (!activeSel) {
-        activeSel = {};
-        for (var fi = 0; fi < m.transform.fcurves.length; fi++) {
-          if (!isStatic(m.transform.fcurves[fi])) activeSel[fi] = true;
-        }
-      }
-
-      var props = [];
-      for (var fi = 0; fi < m.transform.fcurves.length; fi++) {
-        if (!activeSel[fi]) continue;
-        var fc = m.transform.fcurves[fi];
-        if (!fc.keyframes || fc.keyframes.length === 0) continue;
-        var kfs = [];
-        for (var k = 0; k < fc.keyframes.length; k++) {
-          var kf = fc.keyframes[k];
-          kfs.push({ frame: kf.frame, value: kf.value, leftSlope: kf.leftSlope, rightSlope: kf.rightSlope,
-            leftHandleWeight: kf.leftHandleWeight, rightHandleWeight: kf.rightHandleWeight, interpType: kf.interpType });
-        }
-        props.push({ name: fc.propertyName, axis: fc.axis, label: fc.label, defaultValue: fc.defaultValue, keyframes: kfs });
-      }
-
-      var payload = JSON.stringify({
-        layerIndex: m.aeLayer.index,
-        frameRate: fileData.frameRate,
-        canvasWidth: fileData.canvasWidth,
-        canvasHeight: fileData.canvasHeight,
-        cropOffsetX: fileData.cropOffsetX || 0,
-        cropOffsetY: fileData.cropOffsetY || 0,
-        properties: props,
-      });
-
-      csInterface.evalScript("importLayerTransform(" + JSON.stringify(payload) + ")", function (result) {
+      csInterface.evalScript("importLayerTransform(" + JSON.stringify(_buildLayerPayload(m)) + ")", function (result) {
         try {
           var res = JSON.parse(result);
           if (res.error) { setLayerStatus("Error on " + m.aeLayer.name + ": " + res.error, "error"); return; }
