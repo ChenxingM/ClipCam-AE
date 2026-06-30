@@ -92,7 +92,7 @@ powershell -ExecutionPolicy Bypass -File deploy.ps1
 2. Click **Refresh** to pull the current AE comp's layers
 3. The panel auto-matches CSP → AE layer names
 4. Adjust the mapping manually (dropdowns) if needed
-5. Click **Apply Transforms** to batch-write keyframes
+5. Click **Apply All** to batch-write every matched layer, or click the **Apply** button on a row to write just that layer
 
 > ⚠️ **Single-axis Scale import limitation**
 >

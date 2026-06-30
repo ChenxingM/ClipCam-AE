@@ -92,7 +92,7 @@ powershell -ExecutionPolicy Bypass -File deploy.ps1
 2. 点击 **Refresh** 获取当前 AE 合成的图层列表
 3. 面板自动按名称匹配 CSP 图层 → AE 图层
 4. 手动调整匹配关系（下拉选择）
-5. 点击 **Apply Transforms** 批量写入关键帧
+5. 点击 **Apply All** 批量写入全部已匹配图层，或点击每行右侧的 **Apply** 单独写入该层
 
 > ⚠️ **Scale 单轴导入的限制**
 >

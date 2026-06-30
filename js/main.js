@@ -566,8 +566,15 @@
       }
       if (_layerMatches[ai] !== undefined) select.value = _layerMatches[ai].xfmIdx;
 
+      // Per-row apply (one layer at a time). Always visible; disabled until matched.
+      var applyBtn = document.createElement("button");
+      applyBtn.className = "layer-apply-btn";
+      applyBtn.textContent = "Apply";
+      applyBtn.title = "Apply this layer only";
+      applyBtn.disabled = (_layerMatches[ai] === undefined);
+
       // Events
-      (function (aeIdx, rowEl, selEl) {
+      (function (aeIdx, rowEl, selEl, btnEl) {
         rowEl.addEventListener("click", function (e) {
           if (e.target === selEl) return; // don't select row when clicking dropdown
           selectLayerRow(aeIdx);
@@ -577,9 +584,11 @@
           if (val === "") {
             delete _layerMatches[aeIdx];
             rowEl.classList.remove("matched");
+            btnEl.disabled = true;
           } else {
             _layerMatches[aeIdx] = { xfmIdx: parseInt(val), activeProps: null };
             rowEl.classList.add("matched");
+            btnEl.disabled = false;
           }
           // Update match info
           var matchCount = Object.keys(_layerMatches).length;
@@ -589,16 +598,8 @@
           selectLayerRow(aeIdx);
         });
         selEl.addEventListener("click", function (e) { e.stopPropagation(); });
-      })(ai, row, select);
-
-      // Per-row apply (one layer at a time). CSS hides it on unmatched rows.
-      var applyBtn = document.createElement("button");
-      applyBtn.className = "layer-apply-btn";
-      applyBtn.textContent = "Apply";
-      applyBtn.title = "Apply this layer only";
-      (function (aeIdx) {
-        applyBtn.addEventListener("click", function (e) { e.stopPropagation(); applyOneLayer(aeIdx); });
-      })(ai);
+        btnEl.addEventListener("click", function (e) { e.stopPropagation(); applyOneLayer(aeIdx); });
+      })(ai, row, select, applyBtn);
 
       row.appendChild(nameSpan);
       row.appendChild(arrow);

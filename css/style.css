@@ -595,24 +595,31 @@ body {
 }
 .layer-assign:focus { border-color: var(--primary); }
 
-/* Per-row apply button — only shown on matched rows */
+/* Per-row apply button — always visible; disabled until the row is matched */
 .layer-apply-btn {
-  display: none;
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
   height: 20px;
   padding: 0 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--primary);
   border-radius: 4px;
-  background: transparent;
-  color: var(--dim);
+  background: var(--primary);
+  color: #fff;
   font-size: 10px;
   font-family: inherit;
   cursor: pointer;
-  transition: border-color var(--speed-fast), color var(--speed-fast);
+  transition: filter var(--speed-fast), background var(--speed-fast), border-color var(--speed-fast), color var(--speed-fast);
 }
-.layer-row.matched .layer-apply-btn { display: inline-flex; align-items: center; }
-.layer-apply-btn:hover { border-color: var(--primary); color: var(--text); }
-.layer-apply-btn:active { transform: scale(0.96); }
+.layer-apply-btn:hover:not(:disabled) { filter: brightness(1.12); }
+.layer-apply-btn:active:not(:disabled) { transform: scale(0.96); }
+.layer-apply-btn:disabled {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--dimmer);
+  cursor: default;
+  filter: none;
+}
 
 .layer-footer {
   display: flex;
