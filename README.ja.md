@@ -187,10 +187,10 @@ powershell -ExecutionPolicy Bypass -File bin/fetch-extractor.ps1
 
 | 項目 | 値 |
 |---|---|
-| バージョン | v1.0.0 |
+| バージョン | v1.0.1 |
 | プラットフォーム | Windows x86-64 (PE32+) |
-| サイズ | 1,331,200 bytes |
-| SHA-256 | `209EE43D5941B1C1A391B065D09DE83C52A044CFCE8D4B31DF1E4638916CB469` |
+| サイズ | 1,327,104 bytes |
+| SHA-256 | `6DD323E24A1A260FFADC4922B8927C7D4D59457BD73D81C5C264E4E935D6DF42` |
 
 **使用条件**：
 
