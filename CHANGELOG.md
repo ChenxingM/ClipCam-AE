@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1-beta] - 2026-06-30
+
+### Changed
+
+- Layer tab: the per-row **Apply** button is now always shown on the right — disabled (gray) until the row is matched, enabled with a blue fill once a transform is selected from the dropdown
+- Renamed the Layer tab batch button **Apply Transforms** → **Apply All**
+- Updated the bundled `clipcam-extractor` to v1.0.1 — wider camera / transform detection and `.clipcam` schema compatibility
+- Synced the pinned `clipcam-extractor` version table in the READMEs to v1.0.1
+
+### Fixed
+
+- `clipcam-extractor`: corrected the in-point offset so extracted keyframes align to the clip's in-point
+
 ## [1.0.0-beta] - 2026-04-13
 
 First public beta release. Core features are implemented and internally verified, but real-world coverage is limited — please test and report issues before a stable 1.0.0.

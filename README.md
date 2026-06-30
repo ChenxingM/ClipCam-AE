@@ -18,9 +18,9 @@
 
 > 🇯🇵 [日本語](README.ja.md) · 🇺🇸 [English](README.en.md)
 
-> 🧪 **公开测试版 (Public Beta) — v1.0.0-beta**
+> 🧪 **公开测试版 (Public Beta) — v1.0.1-beta**
 >
-> 这是 ClipCam-AE 的首个公开测试版本。核心功能已实现并经过内部验证，但尚未在大量真实项目中跑过。当前仅支持 Windows + After Effects 2020 及以上版本。发布此版本的目的是收集早期反馈和真实使用场景下的 bug 报告——欢迎试用，遇到问题请到 [Issues](https://github.com/ChenxingM/ClipCam-AE/issues) 反馈，稳定版 1.0.0 将在收到足够反馈后发布。
+> 这是 ClipCam-AE 的公开测试版本。核心功能已实现并经过内部验证，但尚未在大量真实项目中跑过。当前仅支持 Windows + After Effects 2020 及以上版本。发布此版本的目的是收集早期反馈和真实使用场景下的 bug 报告——欢迎试用，遇到问题请到 [Issues](https://github.com/ChenxingM/ClipCam-AE/issues) 反馈，稳定版将在收到足够反馈后发布。
 
 ## 功能
 

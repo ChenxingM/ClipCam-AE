@@ -18,9 +18,9 @@
 
 > 🇨🇳 [中文](README.md) · 🇯🇵 [日本語](README.ja.md)
 
-> 🧪 **Public Beta — v1.0.0-beta**
+> 🧪 **Public Beta — v1.0.1-beta**
 >
-> This is the first public beta of ClipCam-AE. Core features are implemented and validated internally, but haven't been battle-tested across a wide range of real projects yet. **Requires Windows + After Effects 2020 or later.** This release is published specifically to gather early feedback and real-world bug reports — please try it and report anything you hit at [Issues](https://github.com/ChenxingM/ClipCam-AE/issues). A stable 1.0.0 will follow once enough feedback is collected.
+> This is a public beta of ClipCam-AE. Core features are implemented and validated internally, but haven't been battle-tested across a wide range of real projects yet. **Requires Windows + After Effects 2020 or later.** This release is published specifically to gather early feedback and real-world bug reports — please try it and report anything you hit at [Issues](https://github.com/ChenxingM/ClipCam-AE/issues). A stable release will follow once enough feedback is collected.
 
 ## Features
 
